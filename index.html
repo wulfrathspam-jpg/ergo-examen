@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ergo Examen">
+<title>Ergo Examen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap">
+<style>
+/* Layout: eine Spalte, Prüfungsbogen-Karte in der Mitte, Werkzeuge darunter – fürs iPad im Hoch- und Querformat */
+:root {
+  --bg: #ECEFEE; --surface: #FFFFFF; --sunk: #F5F7F6; --ink: #1C2526; --muted: #5A6667; --line: #D2D9D7;
+  --accent: #2C479C; --accent-ink: #FFFFFF; --accent-soft: #E2E7F6;
+  --good: #2E7A4C; --good-soft: #E1F1E7; --warn: #9C6210; --warn-soft: #F7ECD9; --bad: #AE3A2E; --bad-soft: #F7E1DE;
+  --paper-rule: #C9D6E8;
+  --font-ui: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+  --font-q: "Literata", Georgia, "Times New Roman", serif;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111617; --surface: #1A2123; --sunk: #151B1C; --ink: #E5ECEA; --muted: #98A6A5; --line: #2B3537;
+    --accent: #93A9F0; --accent-ink: #0E1530; --accent-soft: #1E2847;
+    --good: #6CC08F; --good-soft: #17301F; --warn: #E3A752; --warn-soft: #33270F; --bad: #EC7D70; --bad-soft: #3A1B17;
+    --paper-rule: #2C3B52; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111617; --surface: #1A2123; --sunk: #151B1C; --ink: #E5ECEA; --muted: #98A6A5; --line: #2B3537;
+  --accent: #93A9F0; --accent-ink: #0E1530; --accent-soft: #1E2847;
+  --good: #6CC08F; --good-soft: #17301F; --warn: #E3A752; --warn-soft: #33270F; --bad: #EC7D70; --bad-soft: #3A1B17;
+  --paper-rule: #2C3B52; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body {
+  font: 17px/1.5 var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(28px, env(safe-area-inset-bottom, 0px));
+  -webkit-text-size-adjust: 100%;
+}
+main { max-width: 860px; margin: 0 auto; display: grid; gap: 18px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font: 700 26px/1.2 var(--font-ui); letter-spacing: -0.01em; }
+h2 { font: 700 19px/1.3 var(--font-ui); }
+.eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.spread { justify-content: space-between; }
+button, .btn {
+  font: 700 16px/1 var(--font-ui); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  padding: 13px 18px; border-radius: 12px; cursor: pointer; min-height: 48px;
+}
+button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.ghost { background: transparent; border-color: transparent; color: var(--accent); padding-inline: 8px; }
+button:disabled { opacity: .5; cursor: default; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; }
+.hidden { display: none !important; }
+
+/* Kopf */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.sync { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: none; }
+.dot.ok { background: var(--good); } .dot.run { background: var(--warn); animation: pulse 1.2s infinite; } .dot.err { background: var(--bad); }
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* Prüfungswahl */
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.pr { text-align: left; display: grid; gap: 8px; padding: 18px; min-height: 0; font-weight: 400; }
+.pr .k { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pr .nm { font: 700 18px/1.25 var(--font-ui); }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.tag.m { background: var(--accent-soft); color: var(--accent); }
+.nums { display: flex; gap: 14px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.nums b { color: var(--ink); }
+.pr.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.flist { display: grid; gap: 8px; }
+.fach { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; font-weight: 400; }
+.fach .nm { font-weight: 700; }
+
+/* Frage */
+.qhead { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.qtext { font: 400 23px/1.45 var(--font-q); margin: 4px 0 0; }
+.badge-easy { color: var(--good); font-size: 13px; font-weight: 700; }
+.seg { display: inline-flex; background: var(--sunk); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.seg button { border: 0; background: transparent; min-height: 40px; padding: 9px 14px; font-size: 15px; border-radius: 9px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+/* Aufnahme */
+.rec { display: grid; justify-items: center; gap: 14px; padding: 22px 0 6px; }
+.mic {
+  width: 112px; height: 112px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; position: relative; padding: 0;
+}
+.mic::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; border: 3px solid var(--accent); opacity: .35; transform: scale(var(--lvl, 1)); transition: transform .08s linear; }
+.mic.on { background: var(--bad); } .mic.on::before { border-color: var(--bad); }
+.mic svg { width: 40px; height: 40px; }
+.timer { font: 700 22px/1 var(--font-ui); font-variant-numeric: tabular-nums; }
+audio { width: 100%; max-width: 480px; }
+
+/* Schreibfläche */
+.padwrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.pad {
+  display: block; width: 100%; touch-action: none; cursor: crosshair;
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--paper-rule) 43px, var(--paper-rule) 44px);
+  background-position: 0 12px;
+}
+.tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px; border-top: 1px solid var(--line); background: var(--sunk); }
+.tools button { min-height: 42px; padding: 9px 13px; font-size: 15px; }
+.tools button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.tools label { font-size: 14px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
+
+textarea, input[type=text], input[type=password] {
+  width: 100%; font: 18px/1.5 var(--font-ui); color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+}
+textarea { min-height: 220px; resize: vertical; }
+
+/* Ergebnis */
+.grade { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+.gnum { width: 96px; height: 96px; border-radius: 20px; display: grid; place-items: center; font: 600 56px/1 var(--font-q); }
+.g-good { background: var(--good-soft); color: var(--good); }
+.g-mid { background: var(--warn-soft); color: var(--warn); }
+.g-bad { background: var(--bad-soft); color: var(--bad); }
+.gtext { font: 700 22px/1.2 var(--font-ui); }
+.block { display: grid; gap: 6px; }
+.block h3 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pre { white-space: pre-wrap; }
+.heard { background: var(--sunk); border-radius: 10px; padding: 12px 14px; font-style: italic; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 4px 11px; font-size: 15px; font-weight: 700; }
+.merk { border-left: 4px solid var(--accent); padding: 4px 0 4px 14px; font: 600 19px/1.45 var(--font-q); }
+.dlist { display: grid; gap: 10px; }
+.dfix { display: grid; gap: 3px; padding: 12px; border-radius: 10px; background: var(--sunk); min-width: 0; }
+.dfix .w { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.dfix s { color: var(--bad); text-decoration-thickness: 2px; }
+.dfix .r { color: var(--good); font-weight: 700; }
+.dfix .cat { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+td.n, th.n { text-align: right; }
+.scroll { overflow-x: auto; }
+
+.notice { padding: 12px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--ink); }
+.error { background: var(--bad-soft); }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.center { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 30px 0; }
+@media (max-width: 520px) {
+  .qtext { font-size: 20px; }
+  .grade { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="boot" data-code="<?= code ?>" hidden></div>
+<main>
+  <header class="top">
+    <div>
+      <div class="eyebrow">Staatsexamen Ergotherapie</div>
+      <h1 id="title">Was lernst du heute?</h1>
+    </div>
+    <button class="ghost hidden" id="homeBtn" type="button">Zur Auswahl</button>
+  </header>
+
+  <!-- Zugangscode -->
+  <section id="vCode" class="card hidden">
+    <div class="block">
+      <h2>Zugangscode</h2>
+      <p class="muted">Einmal eingeben, danach merkt sich das iPad den Code.</p>
+      <input id="codeIn" type="password" autocomplete="off" placeholder="Code">
+      <div class="row"><button class="primary" id="codeBtn" type="button">Weiter</button></div>
+      <p id="codeErr" class="notice error hidden"></p>
+    </div>
+  </section>
+
+  <!-- Auswahl -->
+  <section id="vStart" class="hidden" style="display:grid;gap:18px">
+    <div class="row spread">
+      <span class="sync"><span class="dot" id="syncDot"></span><span id="syncText">Lade …</span></span>
+      <div class="row">
+        <button type="button" id="syncBtn">Fragen aktualisieren</button>
+        <button type="button" id="statsBtn">Mein Stand</button>
+        <button type="button" id="deBtn">Deutsch-Tipps</button>
+        <button type="button" id="upBtn">Zusammenfassung hochladen</button>
+      </div>
+    </div>
+    <div class="grid" id="prGrid"></div>
+    <div id="prDetail" class="card hidden"></div>
+  </section>
+
+  <!-- Frage -->
+  <section id="vQuestion" class="hidden" style="display:grid;gap:14px">
+    <div class="card" style="display:grid;gap:10px">
+      <div class="qhead">
+        <span class="eyebrow" id="qMeta"></span>
+        <span class="muted" id="qCount"></span>
+      </div>
+      <p class="qtext" id="qText"></p>
+      <span class="badge-easy hidden" id="qEasy">Kannst du schon – zur Auffrischung</span>
+    </div>
+    <div class="row spread">
+      <div class="seg" role="group" aria-label="Antwortart">
+        <button type="button" data-in="sprache">Sprechen</button>
+        <button type="button" data-in="pencil">Schreiben</button>
+        <button type="button" data-in="tippen">Tippen</button>
+      </div>
+      <button class="ghost" type="button" id="skipBtn">Überspringen</button>
+    </div>
+
+    <div id="inSprache" class="card hidden">
+      <div class="rec">
+        <button class="mic" id="micBtn" type="button" aria-label="Aufnahme starten">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <div class="timer" id="recTime">0:00</div>
+        <div class="muted" id="recHint">Tippen und frei antworten wie in der Prüfung.</div>
+        <audio id="recPlay" controls class="hidden"></audio>
+      </div>
+    </div>
+
+    <div id="inPencil" class="hidden">
+      <div class="padwrap">
+        <canvas class="pad" id="pad"></canvas>
+        <div class="tools">
+          <button type="button" id="tPen" aria-pressed="true">Stift</button>
+          <button type="button" id="tEraser" aria-pressed="false">Radierer</button>
+          <button type="button" id="tUndo">Rückgängig</button>
+          <button type="button" id="tClear">Leeren</button>
+          <button type="button" id="tMore">Mehr Platz</button>
+          <label><input type="checkbox" id="tFinger"> Finger schreibt auch</label>
+        </div>
+      </div>
+    </div>
+
+    <div id="inTippen" class="hidden">
+      <label class="eyebrow" for="typeIn">Deine Antwort</label>
+      <textarea id="typeIn" placeholder="Antwort hier eintippen …"></textarea>
+    </div>
+
+    <p id="qErr" class="notice error hidden"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="primary" id="submitBtn" type="button">Abgeben</button>
+    </div>
+  </section>
+
+  <!-- Bewertung läuft -->
+  <section id="vWait" class="card center hidden">
+    <div class="spinner"></div>
+    <div id="waitText">Wird bewertet …</div>
+  </section>
+
+  <!-- Ergebnis -->
+  <section id="vResult" class="hidden" style="display:grid;gap:14px"></section>
+
+  <!-- Feedback zur App -->
+  <section id="vFeedback" class="hidden" style="display:grid;gap:14px">
+    <div class="card" style="display:grid;gap:12px">
+      <span class="muted" id="fbIntro"></span>
+      <h2>Was soll an der App besser werden?</h2>
+      <p class="muted" style="margin:0">Alles ist willkommen: unklare Fragen, ungerechte Noten, Bedienung, was dir fehlt.</p>
+      <div class="seg" role="group" aria-label="Feedback-Art" id="fbSeg">
+        <button type="button" data-fb="sprache">Sprechen</button>
+        <button type="button" data-fb="tippen">Schreiben</button>
+      </div>
+      <div id="fbSpeak" class="rec hidden">
+        <button class="mic" id="fbMic" type="button" aria-label="Aufnahme starten oder beenden">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <div class="timer" id="fbTime">0:00</div>
+        <audio id="fbPlay" controls class="hidden"></audio>
+      </div>
+      <div id="fbType"><textarea id="fbText" style="min-height:140px" placeholder="z. B. Die Fragen zu Physiologie sind zu lang …"></textarea></div>
+      <p id="fbErr" class="notice error hidden"></p>
+      <div class="row spread"><button class="ghost" type="button" id="fbSkip">Überspringen</button><button class="primary" type="button" id="fbSend">Absenden</button></div>
+    </div>
+  </section>
+
+  <!-- Zusammenfassung hochladen -->
+  <section id="vUpload" class="hidden" style="display:grid;gap:14px">
+    <div class="card" style="display:grid;gap:16px">
+      <div class="block">
+        <h2>1. Datei auswählen</h2>
+        <p class="muted" style="margin:0">Eine Word-Datei (.docx). Der Dateiname ist egal.</p>
+        <div class="row"><label class="btn" for="upFile" style="display:inline-flex;align-items:center">Datei auswählen</label>
+          <input id="upFile" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="position:absolute;opacity:0;width:1px;height:1px">
+          <span id="upFileName" class="muted"></span></div>
+      </div>
+      <div class="block hidden" id="upStep2">
+        <h2>2. Zu welchem Fach gehört sie?</h2>
+        <select id="upFach" style="font:18px var(--font-ui);padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:100%"></select>
+      </div>
+      <div class="block hidden" id="upStep3">
+        <h2>3. Was soll passieren?</h2>
+        <div id="upChoices" style="display:grid;gap:8px"></div>
+      </div>
+      <p id="upMsg" class="notice hidden"></p>
+      <div class="row" style="justify-content:flex-end"><button class="primary" type="button" id="upSend" disabled>Hochladen</button></div>
+    </div>
+  </section>
+
+  <!-- Übersicht / Deutsch -->
+  <section id="vPage" class="hidden" style="display:grid;gap:14px"></section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  // Wenn die Oberfläche außerhalb von Google gehostet wird: Web-App-URL hier eintragen
+  // oder einmal mit ?api=<URL> aufrufen.
+  var ENDPOINT = '';
+  var NOTEN = { 1: 'sehr gut', 2: 'gut', 3: 'befriedigend', 4: 'ausreichend', 5: 'mangelhaft', 6: 'ungenügend' };
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  // ---------- Verbindung ----------
+  var preset = ($('boot').getAttribute('data-code') || '');
+  if (preset.indexOf('<' + '?') === 0) preset = '';
+  try {
+    var qp = new URLSearchParams(location.search);
+    if (qp.get('api')) store.set('ergo_api', qp.get('api'));
+    if (qp.get('code')) preset = preset || qp.get('code');
+  } catch (e) {}
+  ENDPOINT = ENDPOINT || store.get('ergo_api') || '';
+  var token = preset || store.get('ergo_code') || '';
+  if (preset) store.set('ergo_code', preset);
+
+  function call(action, payload) {
+    var hasGas = window.google && google.script && google.script.run;
+    if (hasGas && !ENDPOINT) {
+      return new Promise(function (res, rej) {
+        google.script.run
+          .withSuccessHandler(function (r) { if (r && r.error) { var e = new Error(r.error); e.code = r.code; rej(e); } else res(r); })
+          .withFailureHandler(function (e) { rej(new Error(e && e.message || 'Verbindung fehlgeschlagen.')); })
+          .api(action, payload || {}, token);
+      });
+    }
+    if (!ENDPOINT) return Promise.reject(new Error('Keine Server-Adresse eingestellt.'));
+    return fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: payload || {}, token: token }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) { if (r && r.error) { var e = new Error(r.error); e.code = r.code; throw e; } return r; });
+  }
+
+  // ---------- Ansichten ----------
+  var VIEWS = ['vCode', 'vStart', 'vQuestion', 'vWait', 'vResult', 'vPage', 'vFeedback', 'vUpload'];
+  function show(id, title) {
+    VIEWS.forEach(function (v) { $(v).classList.toggle('hidden', v !== id); });
+    $('homeBtn').classList.toggle('hidden', id === 'vStart' || id === 'vCode' || id === 'vFeedback');
+    $('homeBtn').textContent = S.answered > 0 && !S.fbAsked ? 'Runde beenden' : 'Zur Auswahl';
+    if (title) $('title').textContent = title;
+    window.scrollTo(0, 0);
+  }
+  $('homeBtn').onclick = function () {
+    Rec.cancel();
+    if (S.answered > 0 && !S.fbAsked) showFeedback(false); else loadStart();
+  };
+
+  // ---------- Zugangscode ----------
+  $('codeBtn').onclick = function () {
+    token = $('codeIn').value.trim();
+    store.set('ergo_code', token);
+    loadStart();
+  };
+  $('codeIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('codeBtn').click(); });
+
+  // ---------- Start ----------
+  var S = { data: null, sel: null, scope: null, queue: [], easy: [], answered: 0, sinceEasy: 0, retry: {}, cur: null, input: null, pollT: null };
+
+  function loadStart() {
+    show('vStart', 'Was lernst du heute?');
+    $('prGrid').innerHTML = '<div class="center" style="grid-column:1/-1"><div class="spinner"></div></div>';
+    call('init').then(function (d) {
+      S.data = d; renderStart(); renderSync(d.sync);
+    }).catch(handleErr);
+  }
+  function handleErr(e) {
+    if (e && e.code === 'auth') {
+      show('vCode', 'Willkommen');
+      $('codeErr').textContent = token ? 'Der Code stimmt nicht.' : '';
+      $('codeErr').classList.toggle('hidden', !token);
+      return;
+    }
+    $('prGrid').innerHTML = '<p class="notice error" style="grid-column:1/-1">' + esc(e.message) + '</p>';
+  }
+  function numsHtml(x) {
+    if (!x.gesamt) return '<span>Noch keine Fragen</span>';
+    return '<span><b>' + x.faellig + '</b> fällig</span><span><b>' + x.neu + '</b> neu</span><span><b>' + x.gesamt + '</b> gesamt</span>' +
+      (x.schnitt ? '<span>Ø <b>' + String(x.schnitt).replace('.', ',') + '</b></span>' : '');
+  }
+  function renderStart() {
+    var g = $('prGrid'); g.innerHTML = '';
+    S.data.pruefungen.forEach(function (p) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'card pr' + (S.sel === p.id ? ' sel' : '');
+      b.innerHTML = '<div class="k"><span class="nm">' + esc(p.name) + '</span><span class="tag' + (p.modus === 'muendlich' ? ' m' : '') + '">' +
+        (p.modus === 'muendlich' ? 'mündlich' : 'schriftlich') + '</span></div>' +
+        '<div class="muted" style="font-size:15px">' + esc(p.faecher.map(function (f) { return f.name; }).join(' · ')) + '</div>' +
+        '<div class="nums">' + numsHtml(p) + '</div>';
+      b.onclick = function () { S.sel = p.id; renderStart(); };
+      g.appendChild(b);
+    });
+    var det = $('prDetail');
+    var p = S.data.pruefungen.filter(function (x) { return x.id === S.sel; })[0];
+    if (!p) { det.classList.add('hidden'); return; }
+    det.classList.remove('hidden');
+    var h = '<div style="display:grid;gap:14px"><div class="row spread"><h2>' + esc(p.name) + '</h2>' +
+      '<button class="primary" type="button" id="goAll"' + (p.gesamt ? '' : ' disabled') + '>Ganze Prüfung gemischt</button></div><div class="flist">';
+    p.faecher.forEach(function (f, i) {
+      h += '<button type="button" class="fach" data-i="' + i + '"' + (f.gesamt ? '' : ' disabled') + '><span><span class="nm">' + esc(f.name) + '</span>' +
+        '<span class="nums" style="margin-top:4px">' + numsHtml(f) + '</span></span><span aria-hidden="true">›</span></button>';
+    });
+    det.innerHTML = h + '</div></div>';
+    $('goAll').onclick = function () { startSession({ pruefung: p.id }, p.name + ' · gemischt'); };
+    det.querySelectorAll('.fach').forEach(function (b) {
+      b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-i'))]; startSession({ pruefung: p.id, fach: f.name }, f.name); };
+    });
+    det.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ---------- Sync ----------
+  function renderSync(st) {
+    st = st || {};
+    var dot = $('syncDot'), t = $('syncText');
+    dot.className = 'dot' + (st.zustand === 'läuft' ? ' run' : st.zustand === 'fehler' ? ' err' : st.zustand === 'fertig' ? ' ok' : '');
+    if (st.zustand === 'läuft') t.textContent = st.text || 'Fragen werden aktualisiert …';
+    else if (st.zustand === 'fehler') t.textContent = 'Fehler beim Aktualisieren: ' + st.text;
+    else if (st.zustand === 'fertig') t.textContent = 'Fragen aktuell (' + st.zeit + ')' + (st.text ? ' · ' + st.text : '');
+    else t.textContent = 'Noch nie aktualisiert';
+    $('syncBtn').disabled = st.zustand === 'läuft';
+    clearTimeout(S.pollT);
+    if (st.zustand === 'läuft') S.pollT = setTimeout(function () {
+      call('syncStatus').then(function (s) { renderSync(s); if (s.zustand !== 'läuft') loadStart(); }).catch(function () {});
+    }, 6000);
+  }
+  $('syncBtn').onclick = function () { call('syncStarten').then(renderSync).catch(function (e) { $('syncText').textContent = e.message; }); };
+
+  // ---------- Sitzung ----------
+  function startSession(scope, label) {
+    S.scope = scope; S.label = label; S.queue = []; S.easy = []; S.answered = 0; S.sinceEasy = 0; S.retry = {}; S.fbAsked = false;
+    show('vWait', label); $('waitText').textContent = 'Fragen werden geladen …';
+    fetchBatch().then(next).catch(function (e) { showError(e); });
+  }
+  function fetchBatch() {
+    return call('naechsteFragen', Object.assign({ anzahl: 20 }, S.scope)).then(function (d) {
+      var have = {}; S.queue.forEach(function (q) { have[q.id] = 1; });
+      d.fragen.forEach(function (q) { if (!have[q.id]) S.queue.push(q); });
+      S.easy = d.leicht || [];
+      S.stand = d.stand;
+    });
+  }
+  function next() {
+    var q = null;
+    if (S.sinceEasy >= 4 && S.easy.length) { q = S.easy.shift(); q.easy = true; S.sinceEasy = 0; }
+    else q = S.queue.shift();
+    if (!q) {
+      return fetchBatch().then(function () {
+        if (!S.queue.length) return done();
+        next();
+      }).catch(showError);
+    }
+    if (!q.easy) S.sinceEasy++;
+    S.cur = q;
+    renderQuestion();
+  }
+  function done() {
+    if (S.answered > 0 && !S.fbAsked) { showFeedback(true); return; }
+    show('vPage', S.label);
+    $('vPage').innerHTML = '<div class="card center"><h2>Für heute ist hier alles erledigt.</h2><p class="muted">Neue Wiederholungen kommen, sobald sie fällig sind.</p><button class="primary" type="button" id="backHome">Zur Auswahl</button></div>';
+    $('backHome').onclick = loadStart;
+  }
+
+  // ---------- Feedback zur App ----------
+  var FB = { mode: 'tippen', mr: null, stream: null, chunks: [], blob: null, t0: 0, tick: null };
+  function showFeedback(allesErledigt) {
+    S.fbAsked = true;
+    show('vFeedback', 'Runde beendet');
+    $('fbIntro').textContent = (allesErledigt ? 'Für heute ist hier alles erledigt. ' : '') + S.answered + ' Antworten in dieser Runde.';
+    $('fbText').value = ''; $('fbErr').classList.add('hidden'); fbReset(); fbMode('tippen');
+  }
+  function fbMode(k) {
+    if (k !== 'sprache') fbStop(true);
+    FB.mode = k;
+    document.querySelectorAll('#fbSeg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-fb') === k)); });
+    $('fbSpeak').classList.toggle('hidden', k !== 'sprache');
+    $('fbType').classList.toggle('hidden', k !== 'tippen');
+  }
+  document.querySelectorAll('#fbSeg button').forEach(function (b) { b.onclick = function () { fbMode(b.getAttribute('data-fb')); }; });
+  function fbReset() { fbStop(true); FB.blob = null; $('fbTime').textContent = '0:00'; $('fbPlay').classList.add('hidden'); }
+  function fbStop(discard) {
+    clearInterval(FB.tick);
+    if (FB.mr && FB.mr.state === 'recording') {
+      if (discard) FB.mr.onstop = null;
+      FB.mr.stop();
+    }
+    if (discard && FB.stream) { FB.stream.getTracks().forEach(function (t) { t.stop(); }); FB.stream = null; }
+    $('fbMic').classList.remove('on');
+  }
+  $('fbMic').onclick = function () {
+    $('fbErr').classList.add('hidden');
+    if (FB.mr && FB.mr.state === 'recording') { fbStop(false); return; }
+    if (!navigator.mediaDevices || !window.MediaRecorder) { fbError('Aufnahme hier nicht möglich. Bitte tippen.'); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      FB.stream = stream; FB.chunks = []; FB.blob = null;
+      var types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+      var mime = types.filter(function (t) { return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || '';
+      FB.mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      FB.mr.ondataavailable = function (e) { if (e.data && e.data.size) FB.chunks.push(e.data); };
+      FB.mr.onstop = function () {
+        FB.blob = new Blob(FB.chunks, { type: FB.mr.mimeType || mime || 'audio/mp4' });
+        if (FB.stream) FB.stream.getTracks().forEach(function (t) { t.stop(); }); FB.stream = null;
+        $('fbPlay').src = URL.createObjectURL(FB.blob); $('fbPlay').classList.remove('hidden');
+      };
+      FB.mr.start(1000); FB.t0 = Date.now(); $('fbMic').classList.add('on');
+      FB.tick = setInterval(function () { var s = Math.floor((Date.now() - FB.t0) / 1000); $('fbTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); if (s >= 180) fbStop(false); }, 250);
+    }).catch(function () { fbError('Kein Zugriff aufs Mikrofon. Bitte tippen.'); });
+  };
+  function fbError(m) { $('fbErr').textContent = m; $('fbErr').classList.remove('hidden'); }
+  $('fbSkip').onclick = function () { fbStop(true); loadStart(); };
+  $('fbSend').onclick = function () {
+    var p = { runde: S.label, antworten: S.answered };
+    var prep;
+    if (FB.mode === 'sprache') {
+      var wait = FB.mr && FB.mr.state === 'recording' ? new Promise(function (res) { var o = FB.mr.onstop; FB.mr.onstop = function () { o(); res(); }; fbStop(false); }) : Promise.resolve();
+      prep = wait.then(function () {
+        if (!FB.blob || !FB.blob.size) throw new Error('Noch keine Aufnahme.');
+        p.mime = FB.blob.type || 'audio/mp4';
+        return blobToB64(FB.blob).then(function (b) { p.audio = b; });
+      });
+    } else {
+      p.text = $('fbText').value.trim();
+      if (!p.text) { fbError('Noch nichts geschrieben – oder „Überspringen“.'); return; }
+      prep = Promise.resolve();
+    }
+    $('fbSend').disabled = true;
+    prep.then(function () { return call('feedback', p); }).then(function () {
+      $('fbSend').disabled = false;
+      show('vPage', 'Danke');
+      $('vPage').innerHTML = '<div class="card center"><h2>Danke, ist notiert.</h2><p class="muted">Dein Feedback fließt ins nächste Update der App.</p><button class="primary" type="button" id="backHome">Zur Auswahl</button></div>';
+      $('backHome').onclick = loadStart;
+    }).catch(function (e) { $('fbSend').disabled = false; fbError(e.message); });
+  };
+  function showError(e) {
+    show('vPage', S.label || 'Fehler');
+    $('vPage').innerHTML = '<p class="notice error">' + esc(e.message) + '</p><div class="row"><button type="button" id="backHome">Zur Auswahl</button></div>';
+    $('backHome').onclick = loadStart;
+  }
+
+  // ---------- Frage ----------
+  function renderQuestion() {
+    var q = S.cur;
+    show('vQuestion', S.label);
+    $('qMeta').textContent = q.fach + ' · ' + q.pruefungName + ' · ' + (q.modus === 'muendlich' ? 'mündlich' : 'schriftlich');
+    $('qCount').textContent = S.answered ? S.answered + ' beantwortet' : '';
+    $('qText').textContent = q.frage;
+    $('qEasy').classList.toggle('hidden', !q.easy);
+    $('qErr').classList.add('hidden');
+    $('typeIn').value = '';
+    Rec.reset(); Pad.clear();
+    setInput(q.modus === 'muendlich' ? 'sprache' : 'pencil');
+  }
+  document.querySelectorAll('.seg button').forEach(function (b) {
+    b.onclick = function () { setInput(b.getAttribute('data-in')); };
+  });
+  function setInput(k) {
+    if (S.input === 'sprache' && k !== 'sprache') Rec.cancel();
+    S.input = k;
+    document.querySelectorAll('.seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-in') === k)); });
+    $('inSprache').classList.toggle('hidden', k !== 'sprache');
+    $('inPencil').classList.toggle('hidden', k !== 'pencil');
+    $('inTippen').classList.toggle('hidden', k !== 'tippen');
+    if (k === 'pencil') requestAnimationFrame(function () { Pad.resize(); });
+    if (k === 'tippen') setTimeout(function () { $('typeIn').focus(); }, 50);
+  }
+  $('skipBtn').onclick = function () { Rec.cancel(); S.queue.push(S.cur); next(); };
+
+  function qErr(msg) { $('qErr').textContent = msg; $('qErr').classList.remove('hidden'); }
+
+  $('submitBtn').onclick = function () {
+    var q = S.cur, p = { id: q.id, eingabe: S.input };
+    var prep;
+    if (S.input === 'sprache') {
+      if (Rec.state === 'rec') prep = Rec.stop(); else prep = Promise.resolve(Rec.blob);
+      prep = prep.then(function (blob) {
+        if (!blob || !blob.size) throw new Error('Noch keine Aufnahme. Tippe auf das Mikrofon und antworte.');
+        p.mime = blob.type || Rec.mime || 'audio/mp4';
+        return blobToB64(blob).then(function (b) { p.audio = b; });
+      });
+    } else if (S.input === 'pencil') {
+      var img = Pad.exportPng();
+      if (!img) { qErr('Noch nichts geschrieben.'); return; }
+      p.image = img; prep = Promise.resolve();
+    } else {
+      p.text = $('typeIn').value.trim();
+      if (!p.text) { qErr('Die Antwort ist noch leer.'); return; }
+      prep = Promise.resolve();
+    }
+    prep.then(function () {
+      show('vWait'); $('waitText').textContent = S.input === 'sprache' ? 'Aufnahme wird abgeschrieben und bewertet …' : S.input === 'pencil' ? 'Handschrift wird gelesen und bewertet …' : 'Wird bewertet …';
+      return call('bewerten', p);
+    }).then(function (r) {
+      S.answered++;
+      if (r.note >= 4) {
+        S.retry[q.id] = (S.retry[q.id] || 0) + 1;
+        if (S.retry[q.id] <= 2) S.queue.splice(Math.min(3, S.queue.length), 0, Object.assign({}, q, { easy: false }));
+      }
+      renderResult(q, r);
+    }).catch(function (e) {
+      show('vQuestion'); qErr(e.message);
+    });
+  };
+
+  function blobToB64(blob) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result).split(',')[1]); };
+      fr.onerror = function () { rej(new Error('Aufnahme konnte nicht gelesen werden.')); };
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  // ---------- Ergebnis ----------
+  function gClass(n) { return n <= 2 ? 'g-good' : n === 3 ? 'g-mid' : 'g-bad'; }
+  function renderResult(q, r) {
+    show('vResult', S.label);
+    var heardLabel = r.eingabe === 'sprache' ? 'So wurdest du verstanden' : r.eingabe === 'pencil' ? 'So wurde deine Schrift gelesen' : 'Deine Antwort';
+    var h = '<div class="card" style="display:grid;gap:18px">' +
+      '<div class="grade"><div class="gnum ' + gClass(r.note) + '">' + r.note + '</div><div><div class="gtext">' + esc(NOTEN[r.note]) + '</div><div class="muted">' + esc(r.begruendung) + '</div></div></div>' +
+      '<div class="block"><h3>Frage</h3><div>' + esc(q.frage) + '</div></div>' +
+      '<div class="block"><h3>' + heardLabel + '</h3><div class="heard pre">' + esc(r.antwort || '–') + '</div></div>' +
+      (r.wasGut ? '<div class="block"><h3>Das stimmte</h3><div class="pre">' + esc(r.wasGut) + '</div></div>' : '') +
+      (r.wasFehlte ? '<div class="block"><h3>Das fehlte oder war falsch</h3><div class="pre">' + esc(r.wasFehlte) + '</div></div>' : '') +
+      '<div class="block"><h3>Das musst du hier wissen</h3><div class="pre">' + esc(r.mussWissen) + '</div>' +
+      (r.mussFallen ? '<div class="chips" style="margin-top:6px">' + String(r.mussFallen).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
+      '</div>' +
+      '<details><summary class="muted" style="cursor:pointer">Musterantwort anzeigen</summary><div class="pre" style="margin-top:8px">' + esc(r.musterantwort) + '</div></details>' +
+      '<div class="merk">' + esc(r.merksatz) + '</div></div>';
+    if (r.deutsch && r.deutsch.length) {
+      h += '<div class="card block"><h3>Deutsch</h3><div class="dlist">' + r.deutsch.map(function (d) {
+        return '<div class="dfix"><span class="cat">' + esc(d.kategorie) + '</span><div class="w"><s>' + esc(d.original) + '</s><span aria-hidden="true">→</span><span class="r">' + esc(d.korrektur) + '</span></div><div class="muted">' + esc(d.erklaerung) + '</div></div>';
+      }).join('') + '</div></div>';
+    } else {
+      h += '<div class="card muted">Deutsch: keine Fehler gefunden.</div>';
+    }
+    h += '<div id="dispBox" class="card hidden" style="display:grid;gap:10px"><label class="eyebrow" for="dispIn">Warum ist die Bewertung falsch?</label>' +
+      '<textarea id="dispIn" style="min-height:100px" placeholder="z. B. Das steht so in meinem Skript, S. 12"></textarea>' +
+      '<div class="row"><button type="button" class="primary" id="dispSend">Einspruch speichern</button><button type="button" class="ghost" id="dispCancel">Abbrechen</button></div></div>';
+    h += '<div class="row spread"><button type="button" class="ghost" id="dispBtn">Einspruch</button><button type="button" class="primary" id="nextBtn">Nächste Frage</button></div>';
+    var v = $('vResult'); v.innerHTML = h;
+    $('nextBtn').onclick = next;
+    $('dispBtn').onclick = function () { $('dispBox').classList.remove('hidden'); $('dispIn').focus(); };
+    $('dispCancel').onclick = function () { $('dispBox').classList.add('hidden'); };
+    $('dispSend').onclick = function () {
+      $('dispSend').disabled = true;
+      call('einspruch', { zeile: r.verlaufZeile, grund: $('dispIn').value.trim() }).then(function () {
+        $('dispBox').innerHTML = '<div>Einspruch gespeichert. Die Frage ist zur Prüfung markiert und kommt heute nochmal.</div>';
+        $('dispBtn').classList.add('hidden');
+      }).catch(function (e) { $('dispSend').disabled = false; alertBox($('dispBox'), e.message); });
+    };
+  }
+  function alertBox(el, msg) { var p = document.createElement('p'); p.className = 'notice error'; p.textContent = msg; el.appendChild(p); }
+
+  // ---------- Zusammenfassung hochladen ----------
+  var UP = { info: null, file: null };
+  $('upBtn').onclick = function () {
+    UP.file = null; $('upFile').value = ''; $('upFileName').textContent = '';
+    $('upStep2').classList.add('hidden'); $('upStep3').classList.add('hidden');
+    $('upMsg').classList.add('hidden'); $('upSend').disabled = true;
+    show('vUpload', 'Zusammenfassung hochladen');
+  };
+  $('upFile').onchange = function () {
+    var f = $('upFile').files[0];
+    if (!f) return;
+    $('upMsg').classList.add('hidden');
+    if (!/\.docx$/i.test(f.name)) { upMsg('Bitte eine Word-Datei (.docx) wählen. In Word: Datei → Speichern unter → Word-Dokument (.docx).', true); return; }
+    UP.file = f; $('upFileName').textContent = f.name;
+    $('upSend').disabled = true;
+    call('uploadInfo', { name: f.name }).then(function (d) {
+      UP.info = d;
+      var sel = $('upFach');
+      sel.innerHTML = '<option value="">Fach wählen …</option>' + d.faecher.map(function (x) {
+        return '<option value="' + esc(x.name) + '"' + (x.name === d.vorschlag ? ' selected' : '') + '>' + esc(x.name) + '</option>';
+      }).join('');
+      $('upStep2').classList.remove('hidden');
+      upChoices();
+    }).catch(function (e) { upMsg(e.message, true); });
+  };
+  $('upFach').onchange = upChoices;
+  function upChoices() {
+    var fach = $('upFach').value;
+    var box = $('upChoices');
+    if (!fach) { $('upStep3').classList.add('hidden'); $('upSend').disabled = true; return; }
+    var x = UP.info.faecher.filter(function (f) { return f.name === fach; })[0];
+    var h = '';
+    x.dateien.forEach(function (d) {
+      h += '<label class="card" style="display:flex;gap:12px;align-items:flex-start;padding:14px;cursor:pointer"><input type="radio" name="upWas" value="' + esc(d.id) + '"' + (x.dateien.length === 1 ? ' checked' : '') + ' style="width:22px;height:22px;margin-top:2px">' +
+        '<span><b>Ersetzt die bisherige Fassung</b><br><span class="muted" style="font-size:15px">' + esc(d.name) + ' · Stand ' + esc(d.stand) + '</span></span></label>';
+    });
+    h += '<label class="card" style="display:flex;gap:12px;align-items:flex-start;padding:14px;cursor:pointer"><input type="radio" name="upWas" value=""' + (x.dateien.length === 0 ? ' checked' : '') + ' style="width:22px;height:22px;margin-top:2px">' +
+      '<span><b>' + (x.dateien.length ? 'Kommt zusätzlich dazu' : 'Erste Zusammenfassung für dieses Fach') + '</b><br><span class="muted" style="font-size:15px">' +
+      (x.dateien.length ? 'Nur wählen, wenn es ein neuer Teil ist, z. B. Teil 8 – sonst gibt es Fragen doppelt.' : 'Daraus werden neue Fragen erzeugt.') + '</span></span></label>';
+    box.innerHTML = h;
+    $('upStep3').classList.remove('hidden');
+    var check = function () { $('upSend').disabled = !document.querySelector('input[name=upWas]:checked'); };
+    box.querySelectorAll('input').forEach(function (i) { i.onchange = check; });
+    check();
+  }
+  function upMsg(t, err) { var m = $('upMsg'); m.textContent = t; m.classList.toggle('error', !!err); m.classList.remove('hidden'); }
+  $('upSend').onclick = function () {
+    var was = document.querySelector('input[name=upWas]:checked');
+    if (!UP.file || !was) return;
+    var fach = $('upFach').value;
+    $('upSend').disabled = true;
+    upMsg('Wird hochgeladen …');
+    blobToB64(UP.file).then(function (b64) {
+      var size = 2000000, n = Math.ceil(b64.length / size);
+      var id = (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).replace(/[^a-z0-9]/gi, '');
+      var i = 0;
+      var nextPart = function () {
+        if (i >= n) return Promise.resolve();
+        upMsg('Wird hochgeladen … ' + Math.round(i / n * 100) + ' %');
+        var part = b64.slice(i * size, (i + 1) * size);
+        return call('uploadTeil', { id: id, i: i, data: part }).then(function () { i++; return nextPart(); });
+      };
+      return nextPart().then(function () {
+        upMsg('Wird geprüft und gespeichert …');
+        return call('uploadFertig', { id: id, n: n, fach: fach, ersetzt: was.value, name: UP.file.name });
+      });
+    }).then(function (r) {
+      show('vPage', 'Zusammenfassung hochladen');
+      $('vPage').innerHTML = '<div class="card center"><h2>' + (r.unveraendert ? 'Schon vorhanden' : 'Gespeichert') + '</h2><p>' + esc(r.text) + '</p><button class="primary" type="button" id="backHome">Zur Auswahl</button></div>';
+      $('backHome').onclick = loadStart;
+    }).catch(function (e) { $('upSend').disabled = false; upMsg(e.message, true); });
+  };
+
+  // ---------- Übersicht ----------
+  var KURZ = {
+    'Kinder- und Jugendpsychiatrie': 'KJP', 'Innere/Geriatrie': 'Innere/Geriatrie', 'Staats- und Gesetzeskunde': 'Staats-/Gesetzesk.',
+    'Behindertenpädagogik': 'Behindertenpäd.', 'Funktionelle Anatomie': 'Funkt. Anatomie', 'Gesprächsführung': 'Gesprächsf.',
+    'Medizinsoziologie': 'Med.-Soziologie', 'Arbeitsmedizin': 'Arbeitsmed.', 'Mündliche 1': 'Mündl. 1', 'Mündliche 2': 'Mündl. 2',
+    'Mündliche 3': 'Mündl. 3', 'Schriftliche 1': 'Schriftl. 1', 'Schriftliche 2': 'Schriftl. 2', 'Schriftliche 3': 'Schriftl. 3'
+  };
+  function kurz(s) { return KURZ[s] || (s.length > 15 ? s.slice(0, 14) + '…' : s); }
+  function z(x) { return x === null || x === undefined ? '–' : String(x).replace('.', ','); }
+
+  function radarSvg(items) {
+    // items: [{label, value(0..10), title}]
+    var n = items.length, R = 112, cx = 0, cy = 0, lab = R + 16;
+    var pt = function (i, v) { var a = -Math.PI / 2 + 2 * Math.PI * i / n; return [cx + Math.cos(a) * R * v / 10, cy + Math.sin(a) * R * v / 10]; };
+    var s = '<svg viewBox="-220 -150 440 300" role="img" aria-label="Spinnendiagramm der Scores" style="width:100%;max-width:520px;display:block;margin:0 auto">';
+    [2, 4, 6, 8, 10].forEach(function (r) {
+      var ring = items.map(function (_, i) { return pt(i, r).join(','); }).join(' ');
+      s += '<polygon points="' + ring + '" fill="none" stroke="var(--line)" stroke-width="' + (r === 10 ? 1.5 : 1) + '"/>';
+    });
+    items.forEach(function (it, i) {
+      var e = pt(i, 10); s += '<line x1="0" y1="0" x2="' + e[0] + '" y2="' + e[1] + '" stroke="var(--line)" stroke-width="1"/>';
+      var a = -Math.PI / 2 + 2 * Math.PI * i / n, lx = Math.cos(a) * lab, ly = Math.sin(a) * lab;
+      var anchor = Math.abs(lx) < 8 ? 'middle' : lx > 0 ? 'start' : 'end';
+      var dy = ly < -R * 0.6 ? -4 : ly > R * 0.6 ? 14 : 5;
+      s += '<text x="' + lx.toFixed(1) + '" y="' + (ly + dy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="12.5" fill="var(--ink)" font-family="var(--font-ui)">' + esc(it.label) + '</text>';
+    });
+    s += '<text x="4" y="' + (-R * 0.5 + 4) + '" font-size="10" fill="var(--muted)">5</text><text x="4" y="' + (-R + 12) + '" font-size="10" fill="var(--muted)">10</text>';
+    var poly = items.map(function (it, i) { return pt(i, it.value).join(','); }).join(' ');
+    s += '<polygon points="' + poly + '" fill="var(--accent)" fill-opacity=".16" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>';
+    items.forEach(function (it, i) {
+      var p = pt(i, it.value);
+      s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="12" fill="transparent"><title>' + esc(it.title) + '</title></circle>' +
+        '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" pointer-events="none"/>';
+    });
+    return s + '</svg>';
+  }
+  function barsHtml(items) {
+    return '<div style="display:grid;gap:12px;max-width:520px;margin:0 auto">' + items.map(function (it) {
+      return '<div title="' + esc(it.title) + '"><div class="row spread"><span>' + esc(it.full || it.label) + '</span><b style="font-variant-numeric:tabular-nums">' + z(it.value) + ' / 10</b></div>' +
+        '<div style="height:12px;background:var(--sunk);border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-top:4px"><div style="height:100%;width:' + (it.value * 10) + '%;background:var(--accent);border-radius:99px"></div></div></div>';
+    }).join('') + '</div>';
+  }
+  function scoreClass(s) { return s >= 7.5 ? 'g-good' : s >= 5 ? 'g-mid' : 'g-bad'; }
+  function mini(label, v) {
+    return '<div style="display:grid;grid-template-columns:92px 1fr 34px;gap:8px;align-items:center;font-size:14px"><span class="muted">' + label + '</span>' +
+      '<div style="height:8px;background:var(--sunk);border-radius:99px;overflow:hidden"><div style="height:100%;width:' + ((v || 0) * 10) + '%;background:var(--accent)"></div></div>' +
+      '<span style="text-align:right;font-variant-numeric:tabular-nums">' + z(v) + '</span></div>';
+  }
+
+  var OV = { data: null, tab: 'alle' };
+  $('statsBtn').onclick = function () {
+    show('vWait', 'Übersicht'); $('waitText').textContent = 'Lade Übersicht …';
+    call('uebersicht').then(function (d) { OV.data = d; renderOv(); }).catch(showError);
+  };
+  function renderOv() {
+    var d = OV.data;
+    show('vPage', 'Dein Stand');
+    var F = d.faecher.filter(function (f) { return f.gesamt > 0; });
+    var items, scope;
+    if (OV.tab === 'alle') {
+      items = d.pruefungen.map(function (p) {
+        var fs = F.filter(function (f) { return f.pid === p.id; });
+        var tot = fs.reduce(function (a, f) { return a + f.gesamt; }, 0);
+        if (!tot) return null;
+        var v = Math.round(fs.reduce(function (a, f) { return a + f.score * f.gesamt; }, 0) / tot * 10) / 10;
+        return { label: kurz(p.name), full: p.name, value: v, title: p.name + ': ' + z(v) + ' / 10' };
+      }).filter(Boolean);
+      scope = F;
+    } else {
+      scope = F.filter(function (f) { return f.pid === OV.tab; });
+      items = scope.map(function (f) { return { label: kurz(f.fach), full: f.fach, value: f.score, title: f.fach + ': ' + z(f.score) + ' / 10' }; });
+    }
+    var h = '<div class="card row" style="gap:28px"><div><div class="eyebrow">Letzte 7 Tage</div><div style="font:600 30px/1.2 var(--font-q)">' + d.woche.antworten + ' Antworten</div></div>' +
+      '<div><div class="eyebrow">Ø Note</div><div style="font:600 30px/1.2 var(--font-q)">' + z(d.woche.schnitt) + '</div></div></div>';
+    h += '<div class="card" style="display:grid;gap:16px"><div class="seg" role="group" aria-label="Bereich" id="ovTabs" style="flex-wrap:wrap">' +
+      '<button type="button" data-t="alle" aria-pressed="' + (OV.tab === 'alle') + '">Alle</button>' +
+      d.pruefungen.map(function (p) { return '<button type="button" data-t="' + p.id + '" aria-pressed="' + (OV.tab === p.id) + '">' + p.id + '</button>'; }).join('') + '</div>';
+    if (OV.tab !== 'alle') {
+      var pn = d.pruefungen.filter(function (p) { return p.id === OV.tab; })[0];
+      h += '<h2>' + esc(pn.name) + '</h2>';
+    }
+    if (!items.length) h += '<p class="muted">Hier gibt es noch keine Fragen.</p>';
+    else h += items.length >= 3 ? radarSvg(items) : barsHtml(items);
+    h += '<p class="muted" style="font-size:14px;margin:0">Score aus 10: <b>Können</b> (letzte Noten, 45 %), <b>Abdeckung</b> (wie viele Fragen schon geübt, 25 %), <b>Sicherheit</b> (mehrfach mit 1–2 beantwortet, 20 %), <b>Deutsch</b> (Fehler pro Antwort, 10 %).</p></div>';
+    h += '<div class="grid">' + scope.slice().sort(function (a, b) { return a.score - b.score; }).map(function (f) {
+      return '<div class="card" style="display:grid;gap:10px"><div class="row spread" style="flex-wrap:nowrap"><div style="min-width:0"><div style="font-weight:700">' + esc(f.fach) + '</div><div class="muted" style="font-size:14px">' + esc(f.pruefung) + '</div></div>' +
+        '<div class="gnum ' + (f.gelernt ? scoreClass(f.score) : '') + '" style="width:auto;height:auto;padding:8px 12px;font-size:28px;border-radius:12px;white-space:nowrap' + (f.gelernt ? '' : ';background:var(--sunk);color:var(--muted)') + '">' + z(f.score) + '<span style="font-size:15px">/10</span></div></div>' +
+        (f.gelernt ? mini('Können', f.koennen) + mini('Abdeckung', f.abdeckung) + mini('Sicherheit', f.sicherheit) + mini('Deutsch', f.deutsch)
+          : '<div class="muted" style="font-size:14px">Noch nicht begonnen · ' + f.gesamt + ' Fragen</div>') +
+        '<div class="nums"><span><b>' + f.faellig + '</b> fällig</span><span>Ø Note <b>' + z(f.schnitt) + '</b></span></div></div>';
+    }).join('') + '</div>';
+    h += '<div class="card"><h2 style="margin-bottom:8px">Sitzt noch nicht</h2>' + (d.schwach.length ? '<div class="scroll"><table><tbody>' + d.schwach.map(function (s) {
+      return '<tr><td><div class="muted" style="font-size:14px">' + esc(s.fach) + '</div>' + esc(s.frage) + '</td><td class="n"><span class="gnum ' + gClass(s.note) + '" style="width:40px;height:40px;font-size:22px;border-radius:10px">' + s.note + '</span></td></tr>';
+    }).join('') + '</tbody></table></div>' : '<p class="muted">Keine Frage mit Note 4 oder schlechter.</p>') + '</div>';
+    $('vPage').innerHTML = h;
+    document.querySelectorAll('#ovTabs button').forEach(function (b) { b.onclick = function () { OV.tab = b.getAttribute('data-t'); renderOv(); }; });
+  }
+
+  // ---------- Deutsch ----------
+  $('deBtn').onclick = function () {
+    show('vWait', 'Deutsch-Tipps'); $('waitText').textContent = 'Lade …';
+    call('letzterBericht').then(renderDe).catch(showError);
+  };
+  function renderDe(d) {
+    show('vPage', 'Deutsch-Tipps');
+    var h = '<div class="card row spread"><div class="muted">' + (d && d.bericht ? 'Stand: ' + esc(d.zeit) + (d.zeitraum ? ' · ' + esc(d.zeitraum) : '') : (d && d.text ? esc(d.text) : 'Noch kein Bericht.')) + '</div>' +
+      '<button type="button" class="primary" id="deNew">Neuen Bericht erstellen</button></div>';
+    if (d && d.bericht) {
+      var b = d.bericht;
+      h += '<div class="card"><p style="margin:0">' + esc(b.ueberblick) + '</p></div>';
+      (b.muster || []).forEach(function (m) {
+        h += '<div class="card block" style="gap:10px"><div class="row spread"><h2>' + esc(m.titel) + '</h2><span class="tag">' + m.anzahl + '×</span></div>' +
+          '<div>' + esc(m.regel) + '</div><div class="dlist">' + (m.beispiele || []).map(function (x) {
+            return '<div class="dfix"><div class="w"><s>' + esc(x.falsch) + '</s><span aria-hidden="true">→</span><span class="r">' + esc(x.richtig) + '</span></div></div>';
+          }).join('') + '</div><div class="block"><h3>Übung</h3><div class="pre">' + esc(m.uebung) + '</div></div></div>';
+      });
+      if (b.fachbegriffe && b.fachbegriffe.length) {
+        h += '<div class="card block"><h3>Fachbegriffe richtig schreiben</h3><div class="dlist">' + b.fachbegriffe.map(function (x) {
+          return '<div class="dfix"><div class="w"><s>' + esc(x.falsch) + '</s><span aria-hidden="true">→</span><span class="r">' + esc(x.richtig) + '</span></div></div>';
+        }).join('') + '</div></div>';
+      }
+    }
+    $('vPage').innerHTML = h;
+    $('deNew').onclick = function () {
+      show('vWait', 'Deutsch-Tipps'); $('waitText').textContent = 'Fehler der letzten 30 Tage werden ausgewertet …';
+      call('deutschBericht').then(renderDe).catch(showError);
+    };
+  }
+
+  // ---------- Aufnahme ----------
+  var Rec = {
+    state: 'idle', stream: null, mr: null, chunks: [], blob: null, mime: '', t0: 0, tick: null, ac: null, raf: null,
+    reset: function () {
+      this.cancel(); this.blob = null;
+      $('recTime').textContent = '0:00'; $('recPlay').classList.add('hidden'); $('recPlay').removeAttribute('src');
+      $('recHint').textContent = 'Tippen und frei antworten wie in der Prüfung.';
+      $('micBtn').classList.remove('on'); $('micBtn').setAttribute('aria-label', 'Aufnahme starten');
+    },
+    start: function () {
+      var self = this;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+        return Promise.reject(new Error('Dieser Browser kann nicht aufnehmen. Bitte in Safari öffnen oder „Tippen“ nutzen.'));
+      }
+      return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (stream) {
+        self.stream = stream;
+        var types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
+        self.mime = types.filter(function (t) { return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || '';
+        self.mr = new MediaRecorder(stream, self.mime ? { mimeType: self.mime } : undefined);
+        self.chunks = [];
+        self.mr.ondataavailable = function (e) { if (e.data && e.data.size) self.chunks.push(e.data); };
+        self.mr.start(1000);
+        self.state = 'rec'; self.t0 = Date.now();
+        $('micBtn').classList.add('on'); $('micBtn').setAttribute('aria-label', 'Aufnahme beenden');
+        $('recHint').textContent = 'Aufnahme läuft. Zum Beenden tippen.';
+        $('recPlay').classList.add('hidden');
+        self.tick = setInterval(function () {
+          var s = Math.floor((Date.now() - self.t0) / 1000);
+          $('recTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+          if (s >= 240) self.stop();
+        }, 250);
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          self.ac = new AC();
+          var an = self.ac.createAnalyser(); an.fftSize = 512;
+          self.ac.createMediaStreamSource(stream).connect(an);
+          var buf = new Uint8Array(an.fftSize);
+          var loop = function () {
+            an.getByteTimeDomainData(buf);
+            var sum = 0; for (var i = 0; i < buf.length; i++) { var v = (buf[i] - 128) / 128; sum += v * v; }
+            var lvl = Math.min(1, Math.sqrt(sum / buf.length) * 4);
+            $('micBtn').style.setProperty('--lvl', String(1 + lvl * 0.35));
+            self.raf = requestAnimationFrame(loop);
+          };
+          loop();
+        } catch (e) {}
+      });
+    },
+    stop: function () {
+      var self = this;
+      if (self.state !== 'rec') return Promise.resolve(self.blob);
+      return new Promise(function (res) {
+        self.mr.onstop = function () {
+          self.blob = new Blob(self.chunks, { type: self.mr.mimeType || self.mime || 'audio/mp4' });
+          self.cleanup();
+          $('recPlay').src = URL.createObjectURL(self.blob); $('recPlay').classList.remove('hidden');
+          $('recHint').textContent = 'Anhören, neu aufnehmen (Mikro tippen) oder abgeben.';
+          res(self.blob);
+        };
+        self.mr.stop();
+      });
+    },
+    cleanup: function () {
+      clearInterval(this.tick); cancelAnimationFrame(this.raf);
+      if (this.stream) this.stream.getTracks().forEach(function (t) { t.stop(); });
+      if (this.ac) { try { this.ac.close(); } catch (e) {} }
+      this.stream = null; this.ac = null; this.state = 'idle';
+      $('micBtn').classList.remove('on'); $('micBtn').style.removeProperty('--lvl'); $('micBtn').setAttribute('aria-label', 'Aufnahme starten');
+    },
+    cancel: function () {
+      if (this.state === 'rec') { try { this.mr.onstop = null; this.mr.stop(); } catch (e) {} }
+      this.cleanup();
+    }
+  };
+  $('micBtn').onclick = function () {
+    $('qErr').classList.add('hidden');
+    if (Rec.state === 'rec') { Rec.stop(); return; }
+    Rec.blob = null;
+    Rec.start().catch(function (e) {
+      var msg = e && e.name === 'NotAllowedError'
+        ? 'Kein Zugriff aufs Mikrofon. Bitte in den Safari-Einstellungen das Mikrofon erlauben – oder „Tippen“ nutzen.'
+        : (e && e.message) || 'Mikrofon nicht verfügbar.';
+      qErr(msg);
+    });
+  };
+
+  // ---------- Schreibfläche ----------
+  var Pad = {
+    cv: $('pad'), ctx: null, strokes: [], cur: null, tool: 'pen', finger: false, h: 520,
+    init: function () {
+      var self = this; self.ctx = self.cv.getContext('2d');
+      var pt = function (e) { var r = self.cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, p: e.pointerType === 'pen' ? (e.pressure || 0.5) : 0.5 }; };
+      var allowed = function (e) { return e.pointerType === 'pen' || e.pointerType === 'mouse' || (e.pointerType === 'touch' && self.finger); };
+      self.cv.addEventListener('pointerdown', function (e) {
+        if (!allowed(e)) return;
+        e.preventDefault();
+        try { self.cv.setPointerCapture(e.pointerId); } catch (x) {}
+        self.cur = { tool: self.tool, pts: [pt(e)], id: e.pointerId };
+        self.strokes.push(self.cur);
+        self.drawSeg(self.ctx, self.cur, 0);
+      });
+      self.cv.addEventListener('pointermove', function (e) {
+        if (!self.cur || e.pointerId !== self.cur.id) return;
+        e.preventDefault();
+        var evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        if (!evs.length) evs = [e];
+        evs.forEach(function (ev) { self.cur.pts.push(pt(ev)); self.drawSeg(self.ctx, self.cur, self.cur.pts.length - 2); });
+      });
+      var end = function (e) { if (self.cur && e.pointerId === self.cur.id) self.cur = null; };
+      self.cv.addEventListener('pointerup', end); self.cv.addEventListener('pointercancel', end);
+      window.addEventListener('resize', function () { if (!$('inPencil').classList.contains('hidden')) self.resize(); });
+    },
+    ink: function () { return getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#1C2526'; },
+    resize: function () {
+      var w = this.cv.clientWidth || 600, dpr = window.devicePixelRatio || 1;
+      this.cv.width = Math.round(w * dpr); this.cv.height = Math.round(this.h * dpr); this.cv.style.height = this.h + 'px';
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.redraw();
+    },
+    drawSeg: function (ctx, s, i, color) {
+      var a = s.pts[Math.max(0, i)], b = s.pts[Math.max(0, i + 1)] || a;
+      ctx.save();
+      ctx.globalCompositeOperation = s.tool === 'eraser' ? 'destination-out' : 'source-over';
+      ctx.strokeStyle = color || this.ink(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.lineWidth = s.tool === 'eraser' ? 24 : 1.3 + b.p * 2.6;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x + 0.01, b.y); ctx.stroke();
+      ctx.restore();
+    },
+    drawAll: function (ctx, color, dx, dy) {
+      var self = this;
+      self.strokes.forEach(function (s) {
+        var t = { tool: s.tool, pts: s.pts.map(function (p) { return { x: p.x - (dx || 0), y: p.y - (dy || 0), p: p.p }; }) };
+        for (var i = 0; i < Math.max(1, t.pts.length - 1); i++) self.drawSeg(ctx, t, i, color);
+      });
+    },
+    redraw: function () { this.ctx.clearRect(0, 0, this.cv.width, this.cv.height); this.drawAll(this.ctx); },
+    clear: function () { this.strokes = []; this.cur = null; this.h = 520; if (this.ctx) this.redraw(); },
+    undo: function () { this.strokes.pop(); this.redraw(); },
+    exportPng: function () {
+      var pens = this.strokes.filter(function (s) { return s.tool === 'pen'; });
+      if (!pens.length) return null;
+      var minX = 1e9, minY = 1e9, maxX = 0, maxY = 0;
+      pens.forEach(function (s) { s.pts.forEach(function (p) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }); });
+      var pad = 16; minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+      var w = maxX - minX + pad * 2, h = maxY - minY + pad * 2;
+      var scale = Math.min(2, 1600 / w);
+      var layer = document.createElement('canvas'); layer.width = Math.ceil(w * scale); layer.height = Math.ceil(h * scale);
+      var lc = layer.getContext('2d'); lc.setTransform(scale, 0, 0, scale, 0, 0);
+      this.drawAll(lc, '#000000', minX, minY);
+      var out = document.createElement('canvas'); out.width = layer.width; out.height = layer.height;
+      var oc = out.getContext('2d'); oc.fillStyle = '#FFFFFF'; oc.fillRect(0, 0, out.width, out.height); oc.drawImage(layer, 0, 0);
+      return out.toDataURL('image/png').split(',')[1];
+    }
+  };
+  Pad.init();
+  function setTool(t) { Pad.tool = t; $('tPen').setAttribute('aria-pressed', String(t === 'pen')); $('tEraser').setAttribute('aria-pressed', String(t === 'eraser')); }
+  $('tPen').onclick = function () { setTool('pen'); };
+  $('tEraser').onclick = function () { setTool('eraser'); };
+  $('tUndo').onclick = function () { Pad.undo(); };
+  $('tClear').onclick = function () { Pad.clear(); };
+  $('tMore').onclick = function () { Pad.h += 264; Pad.resize(); };
+  $('tFinger').onchange = function () { Pad.finger = $('tFinger').checked; };
+
+  // ---------- Los ----------
+  if (!token) show('vCode', 'Willkommen'); else loadStart();
+})();
+</script>
+</body>
+</html>
