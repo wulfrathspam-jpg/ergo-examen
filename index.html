@@ -152,6 +152,16 @@ td.n, th.n { text-align: right; }
 .spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .center { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 30px 0; }
+/* Bilder */
+.figs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.fig { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.fig button { padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #FFFFFF; min-height: 160px; display: grid; place-items: center; cursor: zoom-in; }
+.fig img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; background: #FFFFFF; }
+.fig figcaption { font-size: 13px; color: var(--muted); }
+.zoom { position: fixed; inset: 0; z-index: 50; background: rgba(10,14,15,.92); display: grid; place-items: center; overflow: auto;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.zoom img { max-width: 100%; max-height: 100%; background: #FFFFFF; border-radius: 8px; }
+.zoom button { position: fixed; top: max(14px, env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); background: #FFFFFF; color: #1C2526; border: 0; }
 @media (max-width: 520px) {
   .qtext { font-size: 20px; }
   .grade { grid-template-columns: 1fr; }
@@ -643,6 +653,10 @@ td.n, th.n { text-align: right; }
       '<div class="block"><h3>Das musst du hier wissen</h3><div class="pre">' + esc(r.mussWissen) + '</div>' +
       (r.mussFallen ? '<div class="chips" style="margin-top:6px">' + String(r.mussFallen).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
       '</div>' +
+      (r.bilder && r.bilder.length ? '<div class="block"><h3>So sieht es aus</h3><div class="figs">' + r.bilder.map(function (b) {
+        return '<figure class="fig"><button type="button" data-img="' + esc(b.id) + '" aria-label="Bild vergrößern"><span class="spinner"></span></button>' +
+          (b.cap ? '<figcaption>' + esc(b.cap) + '</figcaption>' : '') + '</figure>';
+      }).join('') + '</div></div>' : '') +
       '<details><summary class="muted" style="cursor:pointer">Musterantwort anzeigen</summary><div class="pre" style="margin-top:8px">' + esc(r.musterantwort) + '</div></details>' +
       '<div class="merk">' + esc(r.merksatz) + '</div></div>';
     if (r.deutsch && r.deutsch.length) {
@@ -657,6 +671,7 @@ td.n, th.n { text-align: right; }
       '<div class="row"><button type="button" class="primary" id="dispSend">Einspruch speichern</button><button type="button" class="ghost" id="dispCancel">Abbrechen</button></div></div>';
     h += '<div class="row spread"><button type="button" class="ghost" id="dispBtn">Einspruch</button><button type="button" class="primary" id="nextBtn">Nächste Frage</button></div>';
     var v = $('vResult'); v.innerHTML = h;
+    v.querySelectorAll('[data-img]').forEach(loadImg);
     $('nextBtn').onclick = next;
     $('dispBtn').onclick = function () { $('dispBox').classList.remove('hidden'); $('dispIn').focus(); };
     $('dispCancel').onclick = function () { $('dispBox').classList.add('hidden'); };
@@ -667,6 +682,23 @@ td.n, th.n { text-align: right; }
         $('dispBtn').classList.add('hidden');
       }).catch(function (e) { $('dispSend').disabled = false; alertBox($('dispBox'), e.message); });
     };
+  }
+  var IMG = {};
+  function loadImg(btn) {
+    var id = btn.getAttribute('data-img');
+    var put = function (src) {
+      btn.innerHTML = '<img alt="Abbildung aus der Zusammenfassung" src="' + src + '">';
+      btn.onclick = function () {
+        var z = document.createElement('div'); z.className = 'zoom';
+        z.innerHTML = '<img alt="" src="' + src + '"><button type="button">Schließen</button>';
+        z.onclick = function (e) { if (e.target === z || e.target.tagName === 'BUTTON') z.remove(); };
+        document.body.appendChild(z);
+      };
+    };
+    if (IMG[id]) { put(IMG[id]); return; }
+    call('bild', { id: id }).then(function (d) {
+      IMG[id] = 'data:' + d.mime + ';base64,' + d.data; put(IMG[id]);
+    }).catch(function () { btn.closest('figure').remove(); });
   }
   function alertBox(el, msg) { var p = document.createElement('p'); p.className = 'notice error'; p.textContent = msg; el.appendChild(p); }
 
