@@ -152,6 +152,25 @@ td.n, th.n { text-align: right; }
 .spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .center { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 30px 0; }
+/* Lernen */
+.fach.card { padding: 14px 16px; flex-wrap: wrap; }
+.lbar { height: 6px; border-radius: 99px; background: var(--sunk); border: 1px solid var(--line); overflow: hidden; display: flex; max-width: 260px; margin-top: 8px; }
+.lbar i { display: block; height: 100%; background: var(--accent); }
+.lbar i + i { opacity: .45; }
+.small { font-size: 14px; }
+.resume { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lhead { display: grid; gap: 8px; }
+.lhead .lbar { max-width: none; height: 8px; margin: 0; }
+.lcard { display: grid; gap: 14px; }
+.lcard h2 { font: 600 24px/1.3 var(--font-q); }
+.ltext { font-size: 18px; line-height: 1.6; }
+.ltext b { color: var(--accent); font-weight: 700; }
+.check { background: var(--sunk); border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
+.lbtns { display: grid; grid-template-columns: auto 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .lbtns { grid-template-columns: 1fr 1fr; } .lbtns .ghost { grid-column: 1 / -1; } }
+.party { text-align: center; display: grid; gap: 12px; justify-items: center; padding: 26px 18px; }
+.party .big { font: 600 30px/1.2 var(--font-q); text-wrap: balance; }
+
 /* Bilder */
 .figs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .fig { margin: 0; display: grid; gap: 6px; min-width: 0; }
@@ -202,6 +221,7 @@ td.n, th.n { text-align: right; }
         <button type="button" id="upBtn">Zusammenfassung hochladen</button>
       </div>
     </div>
+    <div class="card resume hidden" id="resume"></div>
     <div class="grid" id="prGrid"></div>
     <div id="prDetail" class="card hidden"></div>
   </section>
@@ -293,6 +313,9 @@ td.n, th.n { text-align: right; }
     </div>
   </section>
 
+  <!-- Lernen -->
+  <section id="vLearn" class="hidden" style="display:grid;gap:14px"></section>
+
   <!-- Zusammenfassung hochladen -->
   <section id="vUpload" class="hidden" style="display:grid;gap:14px">
     <div class="card" style="display:grid;gap:16px">
@@ -363,7 +386,7 @@ td.n, th.n { text-align: right; }
   }
 
   // ---------- Ansichten ----------
-  var VIEWS = ['vCode', 'vStart', 'vQuestion', 'vWait', 'vResult', 'vPage', 'vFeedback', 'vUpload'];
+  var VIEWS = ['vCode', 'vStart', 'vQuestion', 'vWait', 'vResult', 'vPage', 'vFeedback', 'vUpload', 'vLearn'];
   function show(id, title) {
     VIEWS.forEach(function (v) { $(v).classList.toggle('hidden', v !== id); });
     $('homeBtn').classList.toggle('hidden', id === 'vStart' || id === 'vCode' || id === 'vFeedback');
@@ -409,6 +432,18 @@ td.n, th.n { text-align: right; }
       (x.schnitt ? '<span>Ø <b>' + String(x.schnitt).replace('.', ',') + '</b></span>' : '');
   }
   function renderStart() {
+    var last = null;
+    try { last = JSON.parse(store.get('ergo_lern') || 'null'); } catch (e) {}
+    var rs = $('resume');
+    var lf = null;
+    if (last) S.data.pruefungen.forEach(function (p) { if (p.id === last.pruefung) p.faecher.forEach(function (f) { if (f.name === last.fach) lf = f; }); });
+    if (lf && lf.lern && lf.lern.karten) {
+      rs.classList.remove('hidden');
+      rs.innerHTML = '<div style="min-width:0"><div class="eyebrow">Weiterlernen</div><div class="nm" style="font:700 19px/1.3 var(--font-ui)">' + esc(lf.name) + '</div>' +
+        '<div class="lbar"><i style="width:' + lf.lern.prozent + '%"></i></div><div class="muted small" style="margin-top:4px">' + lf.lern.prozent + ' % gelernt</div></div>' +
+        '<button type="button" class="primary" id="resumeBtn">15 Minuten lernen</button>';
+      $('resumeBtn').onclick = function () { startLernen(last.fach, last.pruefung); };
+    } else rs.classList.add('hidden');
     var g = $('prGrid'); g.innerHTML = '';
     S.data.pruefungen.forEach(function (p) {
       var b = document.createElement('button');
@@ -427,13 +462,20 @@ td.n, th.n { text-align: right; }
     var h = '<div style="display:grid;gap:14px"><div class="row spread"><h2>' + esc(p.name) + '</h2>' +
       '<button class="primary" type="button" id="goAll"' + (p.gesamt ? '' : ' disabled') + '>Ganze Prüfung gemischt</button></div><div class="flist">';
     p.faecher.forEach(function (f, i) {
-      h += '<button type="button" class="fach" data-i="' + i + '"' + (f.gesamt ? '' : ' disabled') + '><span><span class="nm">' + esc(f.name) + '</span>' +
-        '<span class="nums" style="margin-top:4px">' + numsHtml(f) + '</span></span><span aria-hidden="true">›</span></button>';
+      var l = f.lern || { karten: 0, prozent: 0 };
+      h += '<div class="card fach"><div style="min-width:0"><div class="nm">' + esc(f.name) + '</div>' +
+        '<div class="nums" style="margin-top:4px">' + numsHtml(f) + '</div>' +
+        (l.karten ? '<div class="lbar" title="Lernfortschritt"><i style="width:' + l.prozent + '%"></i></div><div class="muted small" style="margin-top:4px">Gelernt: ' + l.prozent + ' % · ' + l.karten + ' Lernkarten</div>' : '') +
+        '</div><div class="row"><button type="button" data-l="' + i + '"' + (l.karten ? '' : ' disabled') + '>Lernen</button>' +
+        '<button type="button" class="primary" data-q="' + i + '"' + (f.gesamt ? '' : ' disabled') + '>Fragen</button></div></div>';
     });
     det.innerHTML = h + '</div></div>';
     $('goAll').onclick = function () { startSession({ pruefung: p.id }, p.name + ' · gemischt'); };
-    det.querySelectorAll('.fach').forEach(function (b) {
-      b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-i'))]; startSession({ pruefung: p.id, fach: f.name }, f.name); };
+    det.querySelectorAll('[data-q]').forEach(function (b) {
+      b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-q'))]; startSession({ pruefung: p.id, fach: f.name }, f.name); };
+    });
+    det.querySelectorAll('[data-l]').forEach(function (b) {
+      b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-l'))]; startLernen(f.name, p.id); };
     });
     det.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -701,6 +743,96 @@ td.n, th.n { text-align: right; }
     }).catch(function () { btn.closest('figure').remove(); });
   }
   function alertBox(el, msg) { var p = document.createElement('p'); p.className = 'notice error'; p.textContent = msg; el.appendChild(p); }
+
+  // ---------- Lernen ----------
+  var L = null;
+  function rich(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>'); }
+  function startLernen(fach, pruefung) {
+    store.set('ergo_lern', JSON.stringify({ fach: fach, pruefung: pruefung }));
+    L = { fach: fach, pruefung: pruefung, batch: [], i: 0, done: 0, stand: null, pending: Promise.resolve(), gefeiert: false, warFertig: false };
+    show('vWait', fach); $('waitText').textContent = 'Lernkarten werden geladen …';
+    ladeKarten().then(function () { L.warFertig = !!(L.stand && L.stand.fertig); zeigeKarte(); }).catch(showError);
+  }
+  function ladeKarten() {
+    return L.pending.then(function () { return call('lernKarten', { fach: L.fach, anzahl: 15 }); }).then(function (d) {
+      L.batch = d.karten; L.i = 0; L.stand = d.stand;
+    });
+  }
+  function standBar() {
+    var s = L.stand || { gesamt: 0, runde1: 0, runde2: 0 };
+    var g = Math.max(1, s.gesamt);
+    var a = Math.round(s.runde2 / g * 50), b = Math.round((s.runde1 / g) * 50);
+    var txt = s.runde1 < s.gesamt ? '1. Durchgang: ' + s.runde1 + ' von ' + s.gesamt + ' Karten'
+      : (s.runde2 < s.gesamt || s.nochmal ? '2. Durchgang: ' + s.runde2 + ' von ' + s.gesamt + ' Karten' + (s.nochmal ? ' · ' + s.nochmal + ' zum Wiederholen' : '') : 'Alles 2× gelernt – Auffrischung');
+    return '<div class="lhead"><div class="row spread"><span class="eyebrow">' + esc(L.fach) + '</span><span class="muted small">' + txt + '</span></div>' +
+      '<div class="lbar"><i style="width:' + (a + b) + '%"></i></div></div>';
+  }
+  function zeigeKarte() {
+    if (L.stand && L.stand.fertig && !L.gefeiert && !L.warFertig) return feiern();
+    if (L.done > 0 && L.done % 15 === 0 && !L.pause) return pauseScreen();
+    L.pause = false;
+    var k = L.batch[L.i];
+    if (!k) {
+      if (!L.batch.length) return keineKarten();
+      show('vWait', L.fach); $('waitText').textContent = 'Lädt …';
+      return ladeKarten().then(function () { if (!L.batch.length) return keineKarten(); zeigeKarte(); }).catch(showError);
+    }
+    show('vLearn', L.fach);
+    var h = standBar() + '<article class="card lcard">' +
+      '<div class="row spread"><span class="muted small">' + esc(k.abschnitt) + '</span><span class="muted small">Karte ' + k.pos + (L.stand ? ' / ' + L.stand.gesamt : '') + (k.status === 'nochmal' ? ' · Wiederholung' : '') + '</span></div>' +
+      '<h2>' + esc(k.titel) + '</h2><div class="ltext">' + rich(k.inhalt) + '</div>' +
+      (k.bilder && k.bilder.length ? '<div class="figs">' + k.bilder.map(function (b) {
+        return '<figure class="fig"><button type="button" data-img="' + esc(b.id) + '" aria-label="Bild vergrößern"><span class="spinner"></span></button>' + (b.cap ? '<figcaption>' + esc(b.cap) + '</figcaption>' : '') + '</figure>';
+      }).join('') + '</div>' : '') +
+      (k.merksatz ? '<div class="merk">' + esc(k.merksatz) + '</div>' : '') +
+      (k.begriffe ? '<div class="chips">' + String(k.begriffe).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
+      (k.checkFrage ? '<div class="check"><div><b>Kurz-Check:</b> ' + esc(k.checkFrage) + '</div><div id="chkA" class="hidden">' + esc(k.checkAntwort) + '</div>' +
+        '<div><button type="button" class="ghost" id="chkBtn" style="padding-left:0">Antwort zeigen</button></div></div>' : '') +
+      '</article><div class="lbtns"><button type="button" class="ghost" id="lBack"' + (L.i ? '' : ' disabled') + '>Zurück</button>' +
+      '<button type="button" id="lAgain">Nochmal zeigen</button><button type="button" class="primary" id="lOk">Verstanden</button></div>';
+    var v = $('vLearn'); v.innerHTML = h;
+    v.querySelectorAll('[data-img]').forEach(loadImg);
+    if ($('chkBtn')) $('chkBtn').onclick = function () { $('chkA').classList.remove('hidden'); $('chkBtn').classList.add('hidden'); };
+    $('lBack').onclick = function () { if (L.i) { L.i--; zeigeKarte(); } };
+    $('lAgain').onclick = function () { markiere(k, false); };
+    $('lOk').onclick = function () { markiere(k, true); };
+  }
+  function markiere(k, ok) {
+    if (!k.markiert) {
+      k.markiert = true; L.done++;
+      L.pending = L.pending.then(function () { return call('lernMarkieren', { id: k.id, ok: ok }); })
+        .then(function (r) { if (r && r.stand) L.stand = r.stand; })
+        .catch(function () {});
+    }
+    L.i++;
+    // Bei „Nochmal“ in dieser Runde nach ein paar Karten erneut zeigen
+    if (!ok) L.batch.splice(Math.min(L.i + 4, L.batch.length), 0, Object.assign({}, k, { markiert: false, status: 'nochmal' }));
+    if (L.i >= L.batch.length) { show('vWait', L.fach); $('waitText').textContent = 'Lädt …'; L.pending.then(zeigeKarte); return; }
+    zeigeKarte();
+  }
+  function pauseScreen() {
+    show('vLearn', L.fach);
+    $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="big">' + L.done + ' Karten geschafft.</div>' +
+      '<p class="muted" style="margin:0">Kurze Pause oder direkt weiter?</p><div class="row" style="justify-content:center">' +
+      '<button type="button" id="lStop">Für jetzt fertig</button><button type="button" class="primary" id="lMore">Noch 15 Karten</button></div></div>';
+    $('lStop').onclick = function () { L.pending.then(loadStart); };
+    $('lMore').onclick = function () { L.pause = true; zeigeKarte(); };
+  }
+  function feiern() {
+    L.gefeiert = true;
+    show('vLearn', L.fach);
+    $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="eyebrow">' + esc(L.fach) + '</div>' +
+      '<div class="big">Alle Lernkarten 2× durch.<br>Jetzt ran an die Prüfungsfragen!</div>' +
+      '<p class="muted" style="margin:0">Die Karten bleiben zum Auffrischen da.</p><div class="row" style="justify-content:center">' +
+      '<button type="button" id="lMore">Weiter auffrischen</button><button type="button" class="primary" id="lExam">Prüfungsfragen starten</button></div></div>';
+    $('lExam').onclick = function () { startSession({ pruefung: L.pruefung, fach: L.fach }, L.fach); };
+    $('lMore').onclick = function () { L.pause = true; zeigeKarte(); };
+  }
+  function keineKarten() {
+    show('vPage', L.fach);
+    $('vPage').innerHTML = '<div class="card center"><h2>Für dieses Fach gibt es noch keine Lernkarten.</h2><p class="muted">Sie entstehen automatisch aus der Zusammenfassung, sobald sie eingelesen ist.</p><button class="primary" type="button" id="backHome">Zur Auswahl</button></div>';
+    $('backHome').onclick = loadStart;
+  }
 
   // ---------- Zusammenfassung hochladen ----------
   var UP = { info: null, file: null };
