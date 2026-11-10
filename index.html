@@ -160,6 +160,16 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
 .imgoff { font-size: 13px; color: var(--muted); background: none; border: 0; padding: 4px 0; min-height: 0; justify-self: start; text-decoration: underline; }
 .lokal { font-size: 13px; color: var(--good); font-weight: 700; }
 
+/* Schreibübung auf Lernkarten */
+.chkw { display: grid; gap: 10px; }
+.chkw textarea { min-height: 120px; }
+.wd-ok { }
+.wd-err s { color: var(--bad); text-decoration-thickness: 2px; }
+.wd-err b { color: var(--good); }
+.chkres { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.chkres .ans { font-size: 18px; line-height: 1.7; }
+.infohid { display: grid; place-items: center; padding: 22px; border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; }
+
 /* Lernen */
 .fach.card { padding: 14px 16px; flex-wrap: wrap; }
 .lbar { height: 6px; border-radius: 99px; background: var(--sunk); border: 1px solid var(--line); overflow: hidden; display: flex; max-width: 260px; margin-top: 8px; }
@@ -620,6 +630,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
 
   // ---------- Frage ----------
   function renderQuestion() {
+    padZurueck();
     var q = S.cur;
     show('vQuestion', S.label);
     $('qMeta').textContent = q.fach + ' · ' + q.pruefungName + ' · ' + (q.modus === 'muendlich' ? 'mündlich' : 'schriftlich');
@@ -818,22 +829,31 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       return ladeKarten().then(function () { if (!L.batch.length) return (L.stand && L.stand.gesamt ? fuerHeute() : keineKarten()); zeigeKarte(); }).catch(showError);
     }
     show('vLearn', L.fach);
+    padZurueck();
     var h = standBar() + '<article class="card lcard">' +
       '<div class="row spread"><span class="muted small">' + esc(k.abschnitt) + '</span><span class="muted small">Karte ' + k.pos + (L.stand ? ' / ' + L.stand.gesamt : '') + (k.status === 'nochmal' ? ' · Wiederholung' : '') + '</span></div>' +
-      '<h2>' + esc(k.titel) + '</h2><div class="ltext">' + rich(k.inhalt) + '</div>' +
+      '<h2>' + esc(k.titel) + '</h2><div id="lInfo" style="display:grid;gap:14px"><div class="ltext">' + rich(k.inhalt) + '</div>' +
       (k.bilder && k.bilder.length ? '<div class="figs">' + k.bilder.map(function (b) {
         return figHtml(b);
       }).join('') + '</div>' : '') +
       (k.merksatz ? '<div class="merk">' + esc(k.merksatz) + '</div>' : '') +
       (k.begriffe ? '<div class="chips">' + String(k.begriffe).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
+      '</div><div id="lHid" class="infohid hidden">Karteninhalt ist ausgeblendet – erst schreiben, dann vergleichen.</div>' +
       (k.checkFrage ? '<div class="check"><div><b>Kurz-Check:</b> ' + esc(k.checkFrage) + '</div><div id="chkA" class="hidden">' + esc(k.checkAntwort) + '</div>' +
-        '<div><button type="button" class="ghost" id="chkBtn" style="padding-left:0">Antwort zeigen</button></div></div>' : '') +
+        '<div class="row" id="chkBtns"><button type="button" class="ghost" id="chkBtn" style="padding-left:0">Antwort zeigen</button>' +
+        '<button type="button" class="ghost" id="chkWrite">Selbst schreiben (ohne Spicken)</button></div>' +
+        '<div id="chkW" class="chkw hidden"><div class="seg" role="group" aria-label="Schreibart"><button type="button" data-cw="pencil">Stift</button><button type="button" data-cw="tippen">Tippen</button></div>' +
+        '<div id="chkPad"></div><textarea id="chkT" class="hidden" placeholder="Antwort auf Deutsch eintippen …" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>' +
+        '<p id="chkErr" class="notice error hidden"></p>' +
+        '<div class="row"><button type="button" class="primary" id="chkGo">Vergleichen</button><button type="button" class="ghost" id="chkStop">Abbrechen</button></div></div>' +
+        '<div id="chkR" class="hidden"></div></div>' : '') +
       '</article><div class="lbtns"><button type="button" class="ghost" id="lBack"' + (L.i ? '' : ' disabled') + '>Zurück</button>' +
       '<button type="button" id="lAgain">Nochmal zeigen</button><button type="button" class="primary" id="lOk">Verstanden</button></div>';
     var v = $('vLearn'); v.innerHTML = h;
     v.querySelectorAll('[data-img]').forEach(loadImg);
     bindOff(v);
-    if ($('chkBtn')) $('chkBtn').onclick = function () { $('chkA').classList.remove('hidden'); $('chkBtn').classList.add('hidden'); };
+    if ($('chkBtn')) $('chkBtn').onclick = function () { $('chkA').classList.remove('hidden'); $('chkBtns').classList.add('hidden'); };
+    if ($('chkWrite')) schreibUebung(k);
     $('lBack').onclick = function () { if (L.i) { L.i--; zeigeKarte(); } };
     $('lAgain').onclick = function () { markiere(k, false); };
     $('lOk').onclick = function () { markiere(k, true); };
@@ -859,7 +879,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
   }
   function pauseScreen() {
     show('vLearn', L.fach);
-    $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="big">' + L.done + ' Karten geschafft.</div>' +
+    padZurueck(); $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="big">' + L.done + ' Karten geschafft.</div>' +
       '<p class="muted" style="margin:0">Kurze Pause oder direkt weiter?</p><div class="row" style="justify-content:center">' +
       '<button type="button" id="lStop">Für jetzt fertig</button><button type="button" class="primary" id="lMore">Noch 15 Karten</button></div></div>';
     $('lStop').onclick = function () { L.pending.then(loadStart); };
@@ -868,13 +888,110 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
   function feiern() {
     L.gefeiert = true;
     show('vLearn', L.fach);
-    $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="eyebrow">' + esc(L.fach) + '</div>' +
+    padZurueck(); $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="eyebrow">' + esc(L.fach) + '</div>' +
       '<div class="big">Alle Lernkarten 2× durch.<br>Jetzt ran an die Prüfungsfragen!</div>' +
       '<p class="muted" style="margin:0">Die Karten bleiben zum Auffrischen da.</p><div class="row" style="justify-content:center">' +
       '<button type="button" id="lMore">Weiter auffrischen</button><button type="button" class="primary" id="lExam">Prüfungsfragen starten</button></div></div>';
     $('lExam').onclick = function () { startSession({ pruefung: L.pruefung, fach: L.fach }, L.fach); };
     $('lMore').onclick = function () { L.pause = true; zeigeKarte(); };
   }
+  // ---- Schreibübung im Kurz-Check ----
+  function padZurueck() {
+    var pw = document.querySelector('.padwrap');
+    if (pw && pw.parentNode !== $('inPencil')) { $('inPencil').appendChild(pw); Pad.h = 520; }
+  }
+  function schreibUebung(k) {
+    var modus = store.get('ergo_chk_mode') || 'pencil';
+    var setMode = function (m) {
+      modus = m; store.set('ergo_chk_mode', m);
+      document.querySelectorAll('[data-cw]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-cw') === m)); });
+      $('chkT').classList.toggle('hidden', m !== 'tippen');
+      $('chkPad').classList.toggle('hidden', m !== 'pencil');
+      document.body.classList.toggle('writing', m === 'pencil');
+      if (m === 'pencil') requestAnimationFrame(function () { Pad.resize(); }); else setTimeout(function () { $('chkT').focus(); }, 50);
+    };
+    $('chkWrite').onclick = function () {
+      $('lInfo').classList.add('hidden'); $('lHid').classList.remove('hidden');
+      $('chkBtns').classList.add('hidden'); $('chkW').classList.remove('hidden');
+      $('chkPad').appendChild(document.querySelector('.padwrap'));
+      Pad.clear(); Pad.h = 300;
+      setMode(modus);
+    };
+    document.querySelectorAll('[data-cw]').forEach(function (b) { b.onclick = function () { setMode(b.getAttribute('data-cw')); }; });
+    var ende = function () {
+      document.body.classList.remove('writing');
+      $('lInfo').classList.remove('hidden'); $('lHid').classList.add('hidden'); $('chkW').classList.add('hidden');
+    };
+    $('chkStop').onclick = function () { ende(); $('chkBtns').classList.remove('hidden'); padZurueck(); };
+    $('chkGo').onclick = function () {
+      $('chkErr').classList.add('hidden');
+      var fertig = function (text) {
+        ende(); padZurueck();
+        var e = vergleichen(text, k.checkAntwort, k.begriffe);
+        $('chkR').innerHTML = '<div class="chkres"><div class="eyebrow">Deine Antwort</div><div class="ans">' + e.html + '</div>' +
+          (e.fehler.length ? '<div class="small"><b>' + e.fehler.length + ' Schreibfehler</b> – durchgestrichen, grün die richtige Schreibweise.</div>' : '<div class="small" style="color:var(--good);font-weight:700">Keine Schreibfehler gefunden.</div>') +
+          (e.fehlt.length ? '<div class="small">Diese Fachbegriffe kamen nicht (richtig geschrieben) vor: <b>' + e.fehlt.map(esc).join(', ') + '</b></div>' : '') +
+          '<div class="eyebrow" style="margin-top:4px">Antwort auf der Karte</div><div>' + esc(k.checkAntwort) + '</div></div>';
+        $('chkR').classList.remove('hidden');
+        if (e.fehler.length) call('rechtschreibLog', { id: k.id, fehler: e.fehler.slice(0, 10) }).catch(function () {});
+      };
+      if (modus === 'tippen') {
+        var t = $('chkT').value.trim();
+        if (!t) { $('chkErr').textContent = 'Noch nichts geschrieben.'; $('chkErr').classList.remove('hidden'); return; }
+        return fertig(t);
+      }
+      var img = Pad.exportPng();
+      if (!img) { $('chkErr').textContent = 'Noch nichts geschrieben.'; $('chkErr').classList.remove('hidden'); return; }
+      $('chkGo').disabled = true; $('chkGo').textContent = 'Schrift wird gelesen …';
+      call('handschrift', { image: img }).then(function (r) {
+        $('chkGo').disabled = false; $('chkGo').textContent = 'Vergleichen';
+        fertig(r.text || '');
+      }).catch(function (e) {
+        $('chkGo').disabled = false; $('chkGo').textContent = 'Vergleichen';
+        $('chkErr').textContent = e.message; $('chkErr').classList.remove('hidden');
+      });
+    };
+  }
+  function lev(a, b) {
+    var m = a.length, n = b.length, d = [], i, j;
+    for (i = 0; i <= m; i++) d[i] = [i];
+    for (j = 0; j <= n; j++) d[0][j] = j;
+    for (i = 1; i <= m; i++) for (j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+  }
+  function vergleichen(text, ref, begriffe) {
+    var rein = function (w) { return w.replace(/^[^\wÄÖÜäöüß]+|[^\wÄÖÜäöüß]+$/g, ''); };
+    var refW = String(ref || '').split(/\s+/).map(rein).filter(Boolean);
+    var begr = String(begriffe || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    begr.forEach(function (b) { b.split(/\s+/).map(rein).forEach(function (w) { if (w) refW.push(w); }); });
+    var exakt = {}, klein = {};
+    refW.forEach(function (w) { exakt[w] = 1; klein[w.toLowerCase()] = w; });
+    var fehler = [];
+    var html = String(text).split(/(\s+)/).map(function (tok) {
+      var w = rein(tok);
+      if (!w || /^\d+$/.test(w) || exakt[w]) return esc(tok);
+      if (klein[w.toLowerCase()]) {
+        var r = klein[w.toLowerCase()];
+        if (r !== w) { fehler.push({ original: w, korrektur: r, kategorie: 'Groß-/Kleinschreibung' }); return '<span class="wd-err"><s>' + esc(w) + '</s> <b>' + esc(r) + '</b></span>'; }
+        return esc(tok);
+      }
+      if (w.length < 4) return esc(tok);
+      var best = null, bd = 99;
+      refW.forEach(function (rw) { if (Math.abs(rw.length - w.length) > 3) return; var dd = lev(w.toLowerCase(), rw.toLowerCase()); if (dd < bd) { bd = dd; best = rw; } });
+      var grenze = w.length >= 9 ? 3 : w.length >= 6 ? 2 : 1;
+      if (best && bd > 0 && bd <= grenze) {
+        var fach = begr.some(function (b) { return b.indexOf(best) >= 0; });
+        fehler.push({ original: w, korrektur: best, kategorie: fach ? 'Rechtschreibung Fachbegriff' : 'Rechtschreibung' });
+        return '<span class="wd-err"><s>' + esc(w) + '</s> <b>' + esc(best) + '</b></span>';
+      }
+      return esc(tok);
+    }).join('');
+    var tl = ' ' + String(text).replace(/[^\wÄÖÜäöüß-]+/g, ' ') + ' ';
+    var fehlt = begr.filter(function (b) { return tl.indexOf(' ' + b.replace(/[^\wÄÖÜäöüß-]+/g, ' ').trim() + ' ') < 0; });
+    return { html: html, fehler: fehler, fehlt: fehlt };
+  }
+
   function fuerHeute() {
     show('vLearn', L.fach);
     var wann = '';
@@ -884,7 +1001,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       var tage = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - heute) / 864e5);
       wann = tage <= 0 ? 'später heute' : tage === 1 ? 'morgen' : 'in ' + tage + ' Tagen';
     }
-    $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="big">Für heute ist hier alles gelernt.</div>' +
+    padZurueck(); $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="big">Für heute ist hier alles gelernt.</div>' +
       '<p class="muted" style="margin:0">' + (wann ? 'Die nächsten Karten kommen ' + wann + ' zur Wiederholung – mit Abstand bleibt es besser hängen.' : 'Neue Wiederholungen kommen in den nächsten Tagen.') + '</p>' +
       '<div class="row" style="justify-content:center"><button type="button" id="lStop">Zur Auswahl</button><button type="button" class="primary" id="lExam">Prüfungsfragen üben</button></div></div>';
     $('lStop').onclick = loadStart;
