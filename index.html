@@ -105,6 +105,7 @@ audio { width: 100%; max-width: 480px; }
 .padwrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
 .pad {
   display: block; width: 100%; touch-action: none; cursor: crosshair;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-user-drag: none; -webkit-tap-highlight-color: transparent;
   background-color: var(--surface);
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--paper-rule) 43px, var(--paper-rule) 44px);
   background-position: 0 12px;
@@ -152,6 +153,13 @@ td.n, th.n { text-align: right; }
 .spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .center { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 30px 0; }
+/* Kein Markieren beim Schreiben mit dem Stift */
+button, .seg, .tools, .padwrap, .eyebrow, h1, h2 { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.writing, body.writing * { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }
+body.writing textarea, body.writing input { -webkit-user-select: text !important; user-select: text !important; }
+.imgoff { font-size: 13px; color: var(--muted); background: none; border: 0; padding: 4px 0; min-height: 0; justify-self: start; text-decoration: underline; }
+.lokal { font-size: 13px; color: var(--good); font-weight: 700; }
+
 /* Lernen */
 .fach.card { padding: 14px 16px; flex-wrap: wrap; }
 .lbar { height: 6px; border-radius: 99px; background: var(--sunk); border: 1px solid var(--line); overflow: hidden; display: flex; max-width: 260px; margin-top: 8px; }
@@ -388,6 +396,8 @@ td.n, th.n { text-align: right; }
   // ---------- Ansichten ----------
   var VIEWS = ['vCode', 'vStart', 'vQuestion', 'vWait', 'vResult', 'vPage', 'vFeedback', 'vUpload', 'vLearn'];
   function show(id, title) {
+    if (id !== 'vQuestion') document.body.classList.remove('writing');
+    else if (S.input === 'pencil') document.body.classList.add('writing');
     VIEWS.forEach(function (v) { $(v).classList.toggle('hidden', v !== id); });
     $('homeBtn').classList.toggle('hidden', id === 'vStart' || id === 'vCode' || id === 'vFeedback');
     $('homeBtn').textContent = S.answered > 0 && !S.fbAsked ? 'Runde beenden' : 'Zur Auswahl';
@@ -513,7 +523,7 @@ td.n, th.n { text-align: right; }
   }
   function next() {
     var q = null;
-    if (S.sinceEasy >= 4 && S.easy.length) { q = S.easy.shift(); q.easy = true; S.sinceEasy = 0; }
+    if (S.sinceEasy >= 7 && S.easy.length) { q = S.easy.shift(); q.easy = true; S.sinceEasy = 0; }
     else q = S.queue.shift();
     if (!q) {
       return fetchBatch().then(function () {
@@ -627,6 +637,8 @@ td.n, th.n { text-align: right; }
   function setInput(k) {
     if (S.input === 'sprache' && k !== 'sprache') Rec.cancel();
     S.input = k;
+    document.body.classList.toggle('writing', k === 'pencil');
+    try { window.getSelection().removeAllRanges(); } catch (e) {}
     document.querySelectorAll('.seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-in') === k)); });
     $('inSprache').classList.toggle('hidden', k !== 'sprache');
     $('inPencil').classList.toggle('hidden', k !== 'pencil');
@@ -658,8 +670,12 @@ td.n, th.n { text-align: right; }
       prep = Promise.resolve();
     }
     prep.then(function () {
-      show('vWait'); $('waitText').textContent = S.input === 'sprache' ? 'Aufnahme wird abgeschrieben und bewertet …' : S.input === 'pencil' ? 'Handschrift wird gelesen und bewertet …' : 'Wird bewertet …';
-      return call('bewerten', p);
+      show('vWait');
+      var basis = S.input === 'sprache' ? 'Aufnahme wird abgeschrieben und bewertet' : S.input === 'pencil' ? 'Handschrift wird gelesen und bewertet' : 'Wird bewertet';
+      var t0 = Date.now();
+      $('waitText').textContent = basis + ' …';
+      var tick = setInterval(function () { $('waitText').textContent = basis + ' … ' + Math.round((Date.now() - t0) / 1000) + ' s'; }, 1000);
+      return call('bewerten', p).then(function (r) { clearInterval(tick); return r; }, function (e) { clearInterval(tick); throw e; });
     }).then(function (r) {
       S.answered++;
       if (r.note >= 4) {
@@ -687,20 +703,18 @@ td.n, th.n { text-align: right; }
     show('vResult', S.label);
     var heardLabel = r.eingabe === 'sprache' ? 'So wurdest du verstanden' : r.eingabe === 'pencil' ? 'So wurde deine Schrift gelesen' : 'Deine Antwort';
     var h = '<div class="card" style="display:grid;gap:18px">' +
-      '<div class="grade"><div class="gnum ' + gClass(r.note) + '">' + r.note + '</div><div><div class="gtext">' + esc(NOTEN[r.note]) + '</div><div class="muted">' + esc(r.begruendung) + '</div></div></div>' +
+      '<div class="grade"><div class="gnum ' + gClass(r.note) + '">' + r.note + '</div><div><div class="gtext">' + esc(NOTEN[r.note]) + '</div><div class="muted">' + esc(r.begruendung) + '</div>' + (r.lokal ? '<div class="lokal">Sofort erkannt – passt zu deiner Zusammenfassung</div>' : '') + '</div></div>' +
       '<div class="block"><h3>Frage</h3><div>' + esc(q.frage) + '</div></div>' +
       '<div class="block"><h3>' + heardLabel + '</h3><div class="heard pre">' + esc(r.antwort || '–') + '</div></div>' +
       (r.wasGut ? '<div class="block"><h3>Das stimmte</h3><div class="pre">' + esc(r.wasGut) + '</div></div>' : '') +
       (r.wasFehlte ? '<div class="block"><h3>Das fehlte oder war falsch</h3><div class="pre">' + esc(r.wasFehlte) + '</div></div>' : '') +
-      '<div class="block"><h3>Das musst du hier wissen</h3><div class="pre">' + esc(r.mussWissen) + '</div>' +
+      '<div class="block"><h3>So steht es in deiner Zusammenfassung</h3><div class="pre">' + esc(r.musterantwort) + '</div>' +
       (r.mussFallen ? '<div class="chips" style="margin-top:6px">' + String(r.mussFallen).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
       '</div>' +
       (r.bilder && r.bilder.length ? '<div class="block"><h3>So sieht es aus</h3><div class="figs">' + r.bilder.map(function (b) {
-        return '<figure class="fig"><button type="button" data-img="' + esc(b.id) + '" aria-label="Bild vergrößern"><span class="spinner"></span></button>' +
-          (b.cap ? '<figcaption>' + esc(b.cap) + '</figcaption>' : '') + '</figure>';
+        return figHtml(b);
       }).join('') + '</div></div>' : '') +
-      '<details><summary class="muted" style="cursor:pointer">Musterantwort anzeigen</summary><div class="pre" style="margin-top:8px">' + esc(r.musterantwort) + '</div></details>' +
-      '<div class="merk">' + esc(r.merksatz) + '</div></div>';
+      (r.merksatz ? '<div class="merk">' + esc(r.merksatz) + '</div>' : '') + '</div>';
     if (r.deutsch && r.deutsch.length) {
       h += '<div class="card block"><h3>Deutsch</h3><div class="dlist">' + r.deutsch.map(function (d) {
         return '<div class="dfix"><span class="cat">' + esc(d.kategorie) + '</span><div class="w"><s>' + esc(d.original) + '</s><span aria-hidden="true">→</span><span class="r">' + esc(d.korrektur) + '</span></div><div class="muted">' + esc(d.erklaerung) + '</div></div>';
@@ -714,6 +728,7 @@ td.n, th.n { text-align: right; }
     h += '<div class="row spread"><button type="button" class="ghost" id="dispBtn">Einspruch</button><button type="button" class="primary" id="nextBtn">Nächste Frage</button></div>';
     var v = $('vResult'); v.innerHTML = h;
     v.querySelectorAll('[data-img]').forEach(loadImg);
+    bindOff(v);
     $('nextBtn').onclick = next;
     $('dispBtn').onclick = function () { $('dispBox').classList.remove('hidden'); $('dispIn').focus(); };
     $('dispCancel').onclick = function () { $('dispBox').classList.add('hidden'); };
@@ -724,6 +739,31 @@ td.n, th.n { text-align: right; }
         $('dispBtn').classList.add('hidden');
       }).catch(function (e) { $('dispSend').disabled = false; alertBox($('dispBox'), e.message); });
     };
+  }
+  ['selectstart', 'contextmenu'].forEach(function (t) {
+    document.addEventListener(t, function (e) {
+      if (!document.body.classList.contains('writing')) return;
+      var tg = e.target && e.target.tagName;
+      if (tg === 'TEXTAREA' || tg === 'INPUT') return;
+      e.preventDefault();
+    });
+  });
+  function figHtml(b) {
+    return '<figure class="fig"><button type="button" data-img="' + esc(b.id) + '" aria-label="Bild vergrößern"><span class="spinner"></span></button>' +
+      (b.cap ? '<figcaption>' + esc(b.cap) + '</figcaption>' : '') +
+      '<button type="button" class="imgoff" data-off="' + esc(b.id) + '">Bild passt nicht – ausblenden</button></figure>';
+  }
+  function bindOff(root) {
+    root.querySelectorAll('[data-off]').forEach(function (b) {
+      b.onclick = function () {
+        var fig = b.closest('figure');
+        if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Wirklich überall ausblenden? Nochmal tippen'; return; }
+        b.disabled = true;
+        call('bildAusblenden', { id: b.getAttribute('data-off') }).then(function () {
+          fig.innerHTML = '<div class="muted small">Bild ausgeblendet. Es erscheint nicht mehr.</div>';
+        }).catch(function (e) { b.disabled = false; b.textContent = e.message; });
+      };
+    });
   }
   var IMG = {};
   function loadImg(btn) {
@@ -755,7 +795,7 @@ td.n, th.n { text-align: right; }
   }
   function ladeKarten() {
     return L.pending.then(function () { return call('lernKarten', { fach: L.fach, anzahl: 15 }); }).then(function (d) {
-      L.batch = d.karten; L.i = 0; L.stand = d.stand;
+      L.batch = d.karten; L.i = 0; L.stand = d.stand; L.naechste = d.naechste;
     });
   }
   function standBar() {
@@ -773,16 +813,16 @@ td.n, th.n { text-align: right; }
     L.pause = false;
     var k = L.batch[L.i];
     if (!k) {
-      if (!L.batch.length) return keineKarten();
+      if (!L.batch.length) return (L.stand && L.stand.gesamt ? fuerHeute() : keineKarten());
       show('vWait', L.fach); $('waitText').textContent = 'Lädt …';
-      return ladeKarten().then(function () { if (!L.batch.length) return keineKarten(); zeigeKarte(); }).catch(showError);
+      return ladeKarten().then(function () { if (!L.batch.length) return (L.stand && L.stand.gesamt ? fuerHeute() : keineKarten()); zeigeKarte(); }).catch(showError);
     }
     show('vLearn', L.fach);
     var h = standBar() + '<article class="card lcard">' +
       '<div class="row spread"><span class="muted small">' + esc(k.abschnitt) + '</span><span class="muted small">Karte ' + k.pos + (L.stand ? ' / ' + L.stand.gesamt : '') + (k.status === 'nochmal' ? ' · Wiederholung' : '') + '</span></div>' +
       '<h2>' + esc(k.titel) + '</h2><div class="ltext">' + rich(k.inhalt) + '</div>' +
       (k.bilder && k.bilder.length ? '<div class="figs">' + k.bilder.map(function (b) {
-        return '<figure class="fig"><button type="button" data-img="' + esc(b.id) + '" aria-label="Bild vergrößern"><span class="spinner"></span></button>' + (b.cap ? '<figcaption>' + esc(b.cap) + '</figcaption>' : '') + '</figure>';
+        return figHtml(b);
       }).join('') + '</div>' : '') +
       (k.merksatz ? '<div class="merk">' + esc(k.merksatz) + '</div>' : '') +
       (k.begriffe ? '<div class="chips">' + String(k.begriffe).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
@@ -792,6 +832,7 @@ td.n, th.n { text-align: right; }
       '<button type="button" id="lAgain">Nochmal zeigen</button><button type="button" class="primary" id="lOk">Verstanden</button></div>';
     var v = $('vLearn'); v.innerHTML = h;
     v.querySelectorAll('[data-img]').forEach(loadImg);
+    bindOff(v);
     if ($('chkBtn')) $('chkBtn').onclick = function () { $('chkA').classList.remove('hidden'); $('chkBtn').classList.add('hidden'); };
     $('lBack').onclick = function () { if (L.i) { L.i--; zeigeKarte(); } };
     $('lAgain').onclick = function () { markiere(k, false); };
@@ -800,9 +841,15 @@ td.n, th.n { text-align: right; }
   function markiere(k, ok) {
     if (!k.markiert) {
       k.markiert = true; L.done++;
-      L.pending = L.pending.then(function () { return call('lernMarkieren', { id: k.id, ok: ok }); })
-        .then(function (r) { if (r && r.stand) L.stand = r.stand; })
-        .catch(function () {});
+      var s = L.stand;
+      if (s) {
+        if (k.gesehen === 0) s.runde1++;
+        if (k.gesehen === 1) s.runde2++;
+        if (k.status === 'nochmal' && ok) s.nochmal = Math.max(0, s.nochmal - 1);
+        if (k.status !== 'nochmal' && !ok) s.nochmal++;
+        s.fertig = s.gesamt > 0 && s.runde2 >= s.gesamt && s.nochmal === 0;
+      }
+      L.pending = L.pending.then(function () { return call('lernMarkieren', { id: k.id, ok: ok }); }).catch(function () {});
     }
     L.i++;
     // Bei „Nochmal“ in dieser Runde nach ein paar Karten erneut zeigen
@@ -827,6 +874,21 @@ td.n, th.n { text-align: right; }
       '<button type="button" id="lMore">Weiter auffrischen</button><button type="button" class="primary" id="lExam">Prüfungsfragen starten</button></div></div>';
     $('lExam').onclick = function () { startSession({ pruefung: L.pruefung, fach: L.fach }, L.fach); };
     $('lMore').onclick = function () { L.pause = true; zeigeKarte(); };
+  }
+  function fuerHeute() {
+    show('vLearn', L.fach);
+    var wann = '';
+    if (L.naechste) {
+      var d = new Date(String(L.naechste).replace(' ', 'T'));
+      var heute = new Date(); heute.setHours(0, 0, 0, 0);
+      var tage = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - heute) / 864e5);
+      wann = tage <= 0 ? 'später heute' : tage === 1 ? 'morgen' : 'in ' + tage + ' Tagen';
+    }
+    $('vLearn').innerHTML = standBar() + '<div class="card party"><div class="big">Für heute ist hier alles gelernt.</div>' +
+      '<p class="muted" style="margin:0">' + (wann ? 'Die nächsten Karten kommen ' + wann + ' zur Wiederholung – mit Abstand bleibt es besser hängen.' : 'Neue Wiederholungen kommen in den nächsten Tagen.') + '</p>' +
+      '<div class="row" style="justify-content:center"><button type="button" id="lStop">Zur Auswahl</button><button type="button" class="primary" id="lExam">Prüfungsfragen üben</button></div></div>';
+    $('lStop').onclick = loadStart;
+    $('lExam').onclick = function () { startSession({ pruefung: L.pruefung, fach: L.fach }, L.fach); };
   }
   function keineKarten() {
     show('vPage', L.fach);
@@ -1129,6 +1191,12 @@ td.n, th.n { text-align: right; }
       var self = this; self.ctx = self.cv.getContext('2d');
       var pt = function (e) { var r = self.cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, p: e.pointerType === 'pen' ? (e.pressure || 0.5) : 0.5 }; };
       var allowed = function (e) { return e.pointerType === 'pen' || e.pointerType === 'mouse' || (e.pointerType === 'touch' && self.finger); };
+      // iOS: lange Stift- oder Handberührung darf keine Textauswahl/Lupe/Kontextmenü auslösen
+      ['touchstart', 'touchmove', 'touchend'].forEach(function (t) {
+        self.cv.addEventListener(t, function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
+      });
+      self.cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      self.cv.addEventListener('selectstart', function (e) { e.preventDefault(); });
       self.cv.addEventListener('pointerdown', function (e) {
         if (!allowed(e)) return;
         e.preventDefault();
