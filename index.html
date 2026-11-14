@@ -170,6 +170,9 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
 .chkres .ans { font-size: 18px; line-height: 1.7; }
 .infohid { display: grid; place-items: center; padding: 22px; border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; }
 
+.star { color: #B7791F; font-weight: 700; font-size: 14px; letter-spacing: .02em; }
+.lbtns.hidden { display: none; }
+
 /* Lernen */
 .fach.card { padding: 14px 16px; flex-wrap: wrap; }
 .lbar { height: 6px; border-radius: 99px; background: var(--sunk); border: 1px solid var(--line); overflow: hidden; display: flex; max-width: 260px; margin-top: 8px; }
@@ -253,6 +256,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       </div>
       <p class="qtext" id="qText"></p>
       <span class="badge-easy hidden" id="qEasy">Kannst du schon – zur Auffrischung</span>
+      <span class="star hidden" id="qStar">★ Frage der Lehrerin</span>
     </div>
     <div class="row spread">
       <div class="seg" role="group" aria-label="Antwortart">
@@ -480,7 +484,8 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     if (!p) { det.classList.add('hidden'); return; }
     det.classList.remove('hidden');
     var h = '<div style="display:grid;gap:14px"><div class="row spread"><h2>' + esc(p.name) + '</h2>' +
-      '<button class="primary" type="button" id="goAll"' + (p.gesamt ? '' : ' disabled') + '>Ganze Prüfung gemischt</button></div><div class="flist">';
+      '<div class="row">' + (p.lehrerin ? '<button type="button" id="goStar">★ Nur Fragen der Lehrerin (' + p.lehrerin + ')</button>' : '') +
+      '<button class="primary" type="button" id="goAll"' + (p.gesamt ? '' : ' disabled') + '>Ganze Prüfung gemischt</button></div></div><div class="flist">';
     p.faecher.forEach(function (f, i) {
       var l = f.lern || { karten: 0, prozent: 0 };
       h += '<div class="card fach"><div style="min-width:0"><div class="nm">' + esc(f.name) + '</div>' +
@@ -491,6 +496,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     });
     det.innerHTML = h + '</div></div>';
     $('goAll').onclick = function () { startSession({ pruefung: p.id }, p.name + ' · gemischt'); };
+    if ($('goStar')) $('goStar').onclick = function () { startSession({ pruefung: p.id, nurLehrerin: true }, p.name + ' · ★ Lehrerin'); };
     det.querySelectorAll('[data-q]').forEach(function (b) {
       b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-q'))]; startSession({ pruefung: p.id, fach: f.name }, f.name); };
     });
@@ -637,6 +643,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     $('qCount').textContent = S.answered ? S.answered + ' beantwortet' : '';
     $('qText').textContent = q.frage;
     $('qEasy').classList.toggle('hidden', !q.easy);
+    $('qStar').classList.toggle('hidden', !q.lehrerin);
     $('qErr').classList.add('hidden');
     $('typeIn').value = '';
     Rec.reset(); Pad.clear();
@@ -737,11 +744,20 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     h += '<div id="dispBox" class="card hidden" style="display:grid;gap:10px"><label class="eyebrow" for="dispIn">Warum ist die Bewertung falsch?</label>' +
       '<textarea id="dispIn" style="min-height:100px" placeholder="z. B. Das steht so in meinem Skript, S. 12"></textarea>' +
       '<div class="row"><button type="button" class="primary" id="dispSend">Einspruch speichern</button><button type="button" class="ghost" id="dispCancel">Abbrechen</button></div></div>';
-    h += '<div class="row spread"><button type="button" class="ghost" id="dispBtn">Einspruch</button><button type="button" class="primary" id="nextBtn">Nächste Frage</button></div>';
+    h += '<div class="row spread"><div class="row"><button type="button" class="ghost" id="dispBtn">Einspruch</button><button type="button" class="ghost" id="hideQ">Frage ausblenden (nicht im Unterricht)</button></div><button type="button" class="primary" id="nextBtn">Nächste Frage</button></div>';
     var v = $('vResult'); v.innerHTML = h;
     v.querySelectorAll('[data-img]').forEach(loadImg);
     bindOff(v);
     $('nextBtn').onclick = next;
+    $('hideQ').onclick = function () {
+      var b = $('hideQ');
+      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Wirklich ausblenden? Nochmal tippen'; return; }
+      b.disabled = true;
+      call('frageAusblenden', { id: q.id }).then(function () {
+        b.textContent = 'Ausgeblendet – kommt nicht mehr';
+        S.queue = S.queue.filter(function (x) { return x.id !== q.id; });
+      }).catch(function (e) { b.disabled = false; b.textContent = e.message; });
+    };
     $('dispBtn').onclick = function () { $('dispBox').classList.remove('hidden'); $('dispIn').focus(); };
     $('dispCancel').onclick = function () { $('dispBox').classList.add('hidden'); };
     $('dispSend').onclick = function () {
@@ -821,8 +837,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
   }
   function zeigeKarte() {
     if (L.stand && L.stand.fertig && !L.gefeiert && !L.warFertig) return feiern();
-    if (L.done > 0 && L.done % 15 === 0 && !L.pause) return pauseScreen();
-    L.pause = false;
+    if (L.done > 0 && L.done % 15 === 0 && L.pauseBei !== L.done) { L.pauseBei = L.done; return pauseScreen(); }
     var k = L.batch[L.i];
     if (!k) {
       if (!L.batch.length) return (L.stand && L.stand.gesamt ? fuerHeute() : keineKarten());
@@ -833,7 +848,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     padZurueck();
     var h = standBar() + '<article class="card lcard">' +
       '<div class="row spread"><span class="muted small">' + esc(k.abschnitt) + '</span><span class="muted small">Karte ' + k.pos + (L.stand ? ' / ' + L.stand.gesamt : '') + (k.status === 'nochmal' ? ' · Wiederholung' : '') + '</span></div>' +
-      '<h2>' + esc(k.titel) + '</h2><div id="lInfo" style="display:grid;gap:14px"><div class="ltext">' + rich(k.inhalt) + '</div>' +
+      (k.lehrerin ? '<span class="star">★ Stoff einer Frage der Lehrerin</span>' : '') + '<h2>' + esc(k.titel) + '</h2><div id="lInfo" style="display:grid;gap:14px"><div class="ltext">' + rich(k.inhalt) + '</div>' +
       (k.bilder && k.bilder.length ? '<div class="figs">' + k.bilder.map(function (b) {
         return figHtml(b);
       }).join('') + '</div>' : '') +
@@ -846,16 +861,27 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
         '<div id="chkW" class="chkw hidden"><div class="seg" role="group" aria-label="Schreibart"><button type="button" data-cw="pencil">Stift</button><button type="button" data-cw="tippen">Tippen</button></div>' +
         '<div id="chkPad"></div><textarea id="chkT" class="hidden" placeholder="Antwort auf Deutsch eintippen …" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>' +
         '<p id="chkErr" class="notice error hidden"></p>' +
-        '<div class="row"><button type="button" class="primary" id="chkGo">Vergleichen</button><button type="button" class="ghost" id="chkStop">Abbrechen</button></div></div>' +
+        '</div>' +
         '<div id="chkR" class="hidden"></div></div>' : '') +
-      '</article><div class="lbtns"><button type="button" class="ghost" id="lBack"' + (L.i ? '' : ' disabled') + '>Zurück</button>' +
-      '<button type="button" id="lAgain">Nochmal zeigen</button><button type="button" class="primary" id="lOk">Verstanden</button></div>';
+      '<button type="button" class="imgoff" id="lHide">Karte ausblenden (nicht im Unterricht)</button>' +
+      '</article><div class="lbtns" id="lBtns"><button type="button" class="ghost" id="lBack"' + (L.i ? '' : ' disabled') + '>Zurück</button>' +
+      '<button type="button" id="lAgain">Nochmal zeigen</button><button type="button" class="primary" id="lOk">Verstanden</button></div>' +
+      '<div class="lbtns hidden" id="lWBar"><span></span><button type="button" id="chkStop">Abbrechen</button><button type="button" class="primary" id="chkGo">Vergleichen</button></div>';
     var v = $('vLearn'); v.innerHTML = h;
     v.querySelectorAll('[data-img]').forEach(loadImg);
     bindOff(v);
     if ($('chkBtn')) $('chkBtn').onclick = function () { $('chkA').classList.remove('hidden'); $('chkBtns').classList.add('hidden'); };
     if ($('chkWrite')) schreibUebung(k);
     $('lBack').onclick = function () { if (L.i) { L.i--; zeigeKarte(); } };
+    $('lHide').onclick = function () {
+      var b = $('lHide');
+      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Wirklich ausblenden? Nochmal tippen'; return; }
+      b.disabled = true;
+      call('karteAusblenden', { id: k.id }).then(function () {
+        if (L.stand) L.stand.gesamt = Math.max(0, L.stand.gesamt - 1);
+        L.batch.splice(L.i, 1); zeigeKarte();
+      }).catch(function (e) { b.disabled = false; b.textContent = e.message; });
+    };
     $('lAgain').onclick = function () { markiere(k, false); };
     $('lOk').onclick = function () { markiere(k, true); };
   }
@@ -884,7 +910,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       '<p class="muted" style="margin:0">Kurze Pause oder direkt weiter?</p><div class="row" style="justify-content:center">' +
       '<button type="button" id="lStop">Für jetzt fertig</button><button type="button" class="primary" id="lMore">Noch 15 Karten</button></div></div>';
     $('lStop').onclick = function () { L.pending.then(loadStart); };
-    $('lMore').onclick = function () { L.pause = true; zeigeKarte(); };
+    $('lMore').onclick = function () { zeigeKarte(); };
   }
   function feiern() {
     L.gefeiert = true;
@@ -894,7 +920,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       '<p class="muted" style="margin:0">Die Karten bleiben zum Auffrischen da.</p><div class="row" style="justify-content:center">' +
       '<button type="button" id="lMore">Weiter auffrischen</button><button type="button" class="primary" id="lExam">Prüfungsfragen starten</button></div></div>';
     $('lExam').onclick = function () { startSession({ pruefung: L.pruefung, fach: L.fach }, L.fach); };
-    $('lMore').onclick = function () { L.pause = true; zeigeKarte(); };
+    $('lMore').onclick = function () { zeigeKarte(); };
   }
   // ---- Schreibübung im Kurz-Check ----
   function padZurueck() {
@@ -915,6 +941,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       $('lInfo').classList.add('hidden'); $('lHid').classList.remove('hidden');
       $('chkBtns').classList.add('hidden'); $('chkW').classList.remove('hidden');
       $('chkPad').appendChild(document.querySelector('.padwrap'));
+      $('lBtns').classList.add('hidden'); $('lWBar').classList.remove('hidden');
       Pad.clear(); Pad.h = 300;
       setMode(modus);
     };
@@ -922,6 +949,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     var ende = function () {
       document.body.classList.remove('writing');
       $('lInfo').classList.remove('hidden'); $('lHid').classList.add('hidden'); $('chkW').classList.add('hidden');
+      $('lWBar').classList.add('hidden'); $('lBtns').classList.remove('hidden');
     };
     $('chkStop').onclick = function () { ende(); $('chkBtns').classList.remove('hidden'); padZurueck(); };
     $('chkGo').onclick = function () {
@@ -966,15 +994,23 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     var refW = String(ref || '').split(/\s+/).map(rein).filter(Boolean);
     var begr = String(begriffe || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     begr.forEach(function (b) { b.split(/\s+/).map(rein).forEach(function (w) { if (w) refW.push(w); }); });
-    var exakt = {}, klein = {};
+    var exakt = {}, klein = {}, nomen = {};
     refW.forEach(function (w) { exakt[w] = 1; klein[w.toLowerCase()] = w; });
+    // Großgeschriebene Wörter mitten im Satz der Referenz = Nomen (nur dort ist Großschreibung Pflicht)
+    var rt = String(ref || '').split(/\s+/);
+    rt.forEach(function (tok, i) { var w = rein(tok); if (w && /^[A-ZÄÖÜ]/.test(w) && i > 0 && !/[.!?:]$/.test(rt[i - 1])) nomen[w] = 1; });
+    begr.forEach(function (b) { b.split(/\s+/).map(rein).forEach(function (w) { if (/^[A-ZÄÖÜ]/.test(w)) nomen[w] = 1; }); });
+    var vorher = '';
     var fehler = [];
     var html = String(text).split(/(\s+)/).map(function (tok) {
       var w = rein(tok);
+      var satzAnfang = !vorher || /[.!?:]$/.test(vorher);
+      if (tok.trim()) vorher = tok;
       if (!w || /^\d+$/.test(w) || exakt[w]) return esc(tok);
       if (klein[w.toLowerCase()]) {
         var r = klein[w.toLowerCase()];
-        if (r !== w) { fehler.push({ original: w, korrektur: r, kategorie: 'Groß-/Kleinschreibung' }); return '<span class="wd-err"><s>' + esc(w) + '</s> <b>' + esc(r) + '</b></span>'; }
+        // Klein statt groß nur bei Nomen mitten im Satz melden; Satzanfang und Funktionswörter nicht
+        if (r !== w && !(satzAnfang && w.slice(1) === r.slice(1)) && (nomen[r] || /^[A-ZÄÖÜ]/.test(w))) { fehler.push({ original: w, korrektur: r, kategorie: 'Groß-/Kleinschreibung' }); return '<span class="wd-err"><s>' + esc(w) + '</s> <b>' + esc(r) + '</b></span>'; }
         return esc(tok);
       }
       if (w.length < 4) return esc(tok);
