@@ -728,8 +728,9 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       (r.merksatz ? '<div class="merk">' + esc(r.merksatz) + '</div>' : '') + '</div>';
     if (r.deutsch && r.deutsch.length) {
       h += '<div class="card block"><h3>Deutsch</h3><div class="dlist">' + r.deutsch.map(function (d) {
-        return '<div class="dfix"><span class="cat">' + esc(d.kategorie) + '</span><div class="w"><s>' + esc(d.original) + '</s><span aria-hidden="true">→</span><span class="r">' + esc(d.korrektur) + '</span></div><div class="muted">' + esc(d.erklaerung) + '</div></div>';
-      }).join('') + '</div></div>';
+        return '<div class="dfix"><span class="cat">' + esc(d.kategorie) + '</span><div class="w"><s>' + esc(d.original) + '</s><span aria-hidden="true">→</span><span class="r">' + esc(d.korrektur) + '</span></div><div class="muted">' + esc(d.erklaerung) + '</div>' +
+          (d.erklaerung_es ? '<div class="muted small" lang="es"><i>' + esc(d.erklaerung_es) + '</i></div>' : '') + '</div>';
+      }).join('') + '</div>' + (r.verbessert ? '<div class="block" style="margin-top:6px"><h3>So wäre es richtig</h3><div class="heard" style="font-style:normal">' + esc(r.verbessert) + '</div></div>' : '') + '</div>';
     } else {
       h += '<div class="card muted">Deutsch: keine Fehler gefunden.</div>';
     }
