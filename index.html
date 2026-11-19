@@ -484,7 +484,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     if (!p) { det.classList.add('hidden'); return; }
     det.classList.remove('hidden');
     var h = '<div style="display:grid;gap:14px"><div class="row spread"><h2>' + esc(p.name) + '</h2>' +
-      '<div class="row">' + (p.lehrerin ? '<button type="button" id="goStar">★ Nur Fragen der Lehrerin (' + p.lehrerin + ')</button>' : '') +
+      '<div class="row">' + (p.lehrerin ? '<button type="button" id="goStar">★ Lehrerin, alle Fächer (' + p.lehrerin + ')</button>' : '') +
       '<button class="primary" type="button" id="goAll"' + (p.gesamt ? '' : ' disabled') + '>Ganze Prüfung gemischt</button></div></div><div class="flist">';
     p.faecher.forEach(function (f, i) {
       var l = f.lern || { karten: 0, prozent: 0 };
@@ -492,6 +492,7 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
         '<div class="nums" style="margin-top:4px">' + numsHtml(f) + '</div>' +
         (l.karten ? '<div class="lbar" title="Lernfortschritt"><i style="width:' + l.prozent + '%"></i></div><div class="muted small" style="margin-top:4px">Gelernt: ' + l.prozent + ' % · ' + l.karten + ' Lernkarten</div>' : '') +
         '</div><div class="row"><button type="button" data-l="' + i + '"' + (l.karten ? '' : ' disabled') + '>Lernen</button>' +
+        (f.lehrerin ? '<button type="button" data-s="' + i + '" title="Nur die Fragen der Lehrerin aus ' + esc(f.name) + '">★ Lehrerin (' + f.lehrerin + ')</button>' : '') +
         '<button type="button" class="primary" data-q="' + i + '"' + (f.gesamt ? '' : ' disabled') + '>Fragen</button></div></div>';
     });
     det.innerHTML = h + '</div></div>';
@@ -499,6 +500,9 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
     if ($('goStar')) $('goStar').onclick = function () { startSession({ pruefung: p.id, nurLehrerin: true }, p.name + ' · ★ Lehrerin'); };
     det.querySelectorAll('[data-q]').forEach(function (b) {
       b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-q'))]; startSession({ pruefung: p.id, fach: f.name }, f.name); };
+    });
+    det.querySelectorAll('[data-s]').forEach(function (b) {
+      b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-s'))]; startSession({ pruefung: p.id, fach: f.name, nurLehrerin: true }, f.name + ' · ★ Lehrerin'); };
     });
     det.querySelectorAll('[data-l]').forEach(function (b) {
       b.onclick = function () { var f = p.faecher[Number(b.getAttribute('data-l'))]; startLernen(f.name, p.id); };
@@ -725,7 +729,8 @@ body.writing textarea, body.writing input { -webkit-user-select: text !important
       '<div class="block"><h3>Frage</h3><div>' + esc(q.frage) + '</div></div>' +
       '<div class="block"><h3>' + heardLabel + '</h3><div class="heard pre">' + esc(r.antwort || '–') + '</div></div>' +
       (r.wasGut ? '<div class="block"><h3>Das stimmte</h3><div class="pre">' + esc(r.wasGut) + '</div></div>' : '') +
-      (r.wasFehlte ? '<div class="block"><h3>Das fehlte oder war falsch</h3><div class="pre">' + esc(r.wasFehlte) + '</div></div>' : '') +
+      (r.falsch ? '<div class="block"><h3>Das war inhaltlich falsch</h3><div class="pre">' + esc(r.falsch) + '</div></div>' : '') +
+      ((r.verbesserung || r.wasFehlte) ? '<div class="block"><h3>Das hätte die Antwort noch verbessert</h3><div class="pre">' + esc(r.verbesserung || r.wasFehlte) + '</div></div>' : '') +
       '<div class="block"><h3>So steht es in deiner Zusammenfassung</h3><div class="pre">' + esc(r.musterantwort) + '</div>' +
       (r.mussFallen ? '<div class="chips" style="margin-top:6px">' + String(r.mussFallen).split(',').filter(function (s) { return s.trim(); }).map(function (s) { return '<span class="chip">' + esc(s.trim()) + '</span>'; }).join('') + '</div>' : '') +
       '</div>' +
